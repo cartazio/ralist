@@ -1,4 +1,6 @@
--- | 
+{-# LANGUAGE CPP #-}
+
+-- |
 -- A random-access list implementation based on Chris Okasaki's approach
 -- on his book \"Purely Functional Data Structures\", Cambridge University
 -- Press, 1998, chapter 9.3.
@@ -32,7 +34,7 @@ module Data.RAList
    , intersperse
    , intercalate
    , transpose
-   
+
    , subsequences
    , permutations
 
@@ -214,7 +216,10 @@ import Prelude hiding(
     zip, zipWith, unzip
     )
 import qualified Data.List as List
-import Data.Monoid
+#if !MIN_VERSION_base(4,9,0) == 1
+import Data.Monoid(Monoid,mappend,mempty)
+#endif
+import Data.Semigroup(Semigroup,(<>))
 
 
 infixl 9  !!
@@ -245,13 +250,20 @@ instance (Ord a) => Ord (RAList a) where
 
 instance Monoid (RAList a) where
     mempty  = empty
-    mappend = (++)
+    mappend = (<>)
+
+instance Semigroup (RAList a) where
+    (<>) = (++)
 
 instance Functor RAList where
     fmap f (RAList s wts) = RAList s (fmap f wts)
 
+instance Applicative RAList where
+    pure = \x -> RAList 1 (Cons 1 (Leaf x) Nil)
+    (<*>) = zipWith ($)
+
 instance Monad RAList where
-    return x = RAList 1 (Cons 1 (Leaf x) Nil)
+    return = pure
     (>>=) = flip concatMap
 
 -- Special list type for (Int, Tree a), i.e., Top a ~= [(Int, Tree a)]
@@ -303,7 +315,7 @@ last xs@(RAList s _) = xs !! (s-1)
 tail :: RAList a -> RAList a
 tail (RAList _ Nil) = errorEmptyList "tail"
 tail (RAList s (Cons _ (Leaf _)     wts)) = RAList (s-1) wts
-tail (RAList s (Cons w (Node x l r) wts)) = RAList (s-1) (Cons w2 l (Cons w2 r wts))
+tail (RAList s (Cons w (Node _x l r) wts)) = RAList (s-1) (Cons w2 l (Cons w2 r wts))
   where w2 = w `quot` 2
 
 -- XXX Is there some clever way to do this?
@@ -387,11 +399,11 @@ take n = fromList . Prelude.take n . toList
 -- | Complexity /O(log n)/.
 drop :: Int -> RAList a -> RAList a
 drop n xs | n <= 0 = xs
-drop n xs@(RAList s _) | n >= s = empty
+drop n _xs@(RAList s _) | n >= s = empty
 drop n (RAList s wts) = RAList (s-n) (loop n wts)
   where loop 0 xs = xs
-        loop n (Cons w _ xs) | w <= n = loop (n-w) xs
-        loop n (Cons w (Node _ l r) xs) = loop (n-1) (Cons w2 l (Cons w2 r xs)) where w2 = w `quot` 2
+        loop n1 (Cons w _ xs) | w <= n1 = loop (n1-w) xs
+        loop n2 (Cons w (Node _ l r) xs) = loop (n2-1) (Cons w2 l (Cons w2 r xs)) where w2 = w `quot` 2
         loop _ _ = error "Data.RAList.drop: impossible"
 
 splitAt :: Int -> RAList a -> (RAList a, RAList a)
@@ -423,18 +435,18 @@ partition p xs = (filter p xs, filter (not . p) xs)
 RAList s wts !! n | n <  0 = error "Data.RAList.!!: negative index"
                   | n >= s = error "Data.RAList.!!: index too large"
                   | otherwise = ix n wts
-  where ix n (Cons w t wts') | n < w     = ixt n (w `quot` 2) t
-                             | otherwise = ix (n-w) wts'
+  where ix j (Cons w t wts') | n < w     = ixt j (w `quot` 2) t
+                             | otherwise = ix (j-w) wts'
         ix _ _ = error "Data.RAList.!!: impossible"
         ixt 0 0 (Leaf x) = x
-        ixt 0 _ (Node x l r) = x
-        ixt n w (Node x l r) | n <= w    = ixt (n-1)   (w `quot` 2) l
-                             | otherwise = ixt (n-1-w) (w `quot` 2) r
-        ixt n w _ = error "Data.RAList.!!: impossible"
+        ixt 0 _ (Node x _l _r) = x
+        ixt j w (Node _x l r) | j <= w    = ixt (j-1)   (w `quot` 2) l
+                             | otherwise = ixt (j-1-w) (w `quot` 2) r
+        ixt _j _w _ = error "Data.RAList.!!: impossible"
 
 
 zip :: RAList a -> RAList b -> RAList (a, b)
-zip = zipWith (,)        
+zip = zipWith (,)
 
 zipWith :: (a->b->c) -> RAList a -> RAList b -> RAList c
 zipWith f xs1@(RAList s1 wts1) xs2@(RAList s2 wts2)
@@ -444,7 +456,7 @@ zipWith f xs1@(RAList s1 wts1) xs2@(RAList s2 wts2)
         zipTree (Node x1 l1 r1) (Node x2 l2 r2) = Node (f x1 x2) (zipTree l1 l2) (zipTree r1 r2)
         zipTree _ _ = error "Data.RAList.zipWith: impossible"
         zipTop Nil Nil = Nil
-        zipTop (Cons w t1 xs1) (Cons _ t2 xs2) = Cons w (zipTree t1 t2) (zipTop xs1 xs2)
+        zipTop (Cons w t1 xss1) (Cons _ t2 xss2) = Cons w (zipTree t1 t2) (zipTop xss1 xss2)
         zipTop _ _ = error "Data.RAList.zipWith: impossible"
 
 unzip :: RAList (a, b) -> (RAList a, RAList b)
@@ -461,13 +473,13 @@ adjust :: (a->a) -> Int -> RAList a -> RAList a
 adjust f n (RAList s wts) | n <  0 = error "Data.RAList.adjust: negative index"
                           | n >= s = error "Data.RAList.adjust: index too large"
                           | otherwise = RAList s (adj n wts)
-  where adj n (Cons w t wts') | n < w     = Cons w (adjt n (w `quot` 2) t) wts'
+  where adj j (Cons w t wts') | n < w     = Cons w (adjt j (w `quot` 2) t) wts'
                               | otherwise = Cons w t (adj (n-w) wts')
         adj _ _ = error "Data.RAList.adjust: impossible"
         adjt 0 0 (Leaf x) = Leaf (f x)
         adjt 0 _ (Node x l r) = Node (f x) l r
-        adjt n w (Node x l r) | n <= w    = Node x (adjt (n-1) (w `quot` 2) l) r
-                              | otherwise = Node x l (adjt (n-1-w) (w `quot` 2) r)
+        adjt j w (Node x l r) | j <= w    = Node x (adjt (j-1) (w `quot` 2) l) r
+                              | otherwise = Node x l (adjt (j-1-w) (w `quot` 2) r)
         adjt _ _ _ = error "Data.RAList.adjust: impossible"
 
 -- XXX Make this a good producer
