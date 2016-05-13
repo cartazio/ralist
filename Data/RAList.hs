@@ -1,5 +1,7 @@
 {-# LANGUAGE CPP #-}
-
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE DeriveFoldable , DeriveTraversable#-}
 -- |
 -- A random-access list implementation based on Chris Okasaki's approach
 -- on his book \"Purely Functional Data Structures\", Cambridge University
@@ -18,6 +20,7 @@ module Data.RAList
 
    , empty
    , cons
+   , uncons
 --   , singleton
    , (++)
    , head
@@ -220,6 +223,7 @@ import qualified Data.List as List
 import Data.Monoid(Monoid,mappend,mempty)
 #endif
 import Data.Semigroup(Semigroup,(<>))
+import Data.Data(Data,Typeable)
 
 
 infixl 9  !!
@@ -233,7 +237,7 @@ infixr 5  `cons`, ++
 --   [3,7], [1,3,7], [1,1,3,7], [3,3,7], [7,7], [15], ...
 -- (I.e., skew binary numbers.)
 data RAList a = RAList {-# UNPACK #-} !Int !(Top a)
-    deriving (Eq)
+    deriving (Eq,Data,Typeable,Foldable)
 
 instance (Show a) => Show (RAList a) where
     showsPrec p xs = showParen (p >= 10) $ showString "fromList " . showsPrec 10 (toList xs)
@@ -268,22 +272,22 @@ instance Monad RAList where
 
 -- Special list type for (Int, Tree a), i.e., Top a ~= [(Int, Tree a)]
 data Top a = Nil | Cons {-# UNPACK #-} !Int !(Tree a) (Top a)
-    deriving (Eq)
+    deriving (Eq,Data,Typeable,Functor,Foldable,Traversable)
 
-instance Functor Top where
-    fmap _ Nil = Nil
-    fmap f (Cons w t xs) = Cons w (fmap f t) (fmap f xs)
+--instance Functor Top where
+--    fmap _ Nil = Nil
+--    fmap f (Cons w t xs) = Cons w (fmap f t) (fmap f xs)
 
 -- Complete binary tree.  The completeness of the trees is an invariant that must
 -- be preserved for the implementation to work.
 data Tree a
      = Leaf a
      | Node a !(Tree a) !(Tree a)
-     deriving (Eq)
+     deriving (Eq,Data,Typeable,Functor,Foldable,Traversable)
 
-instance Functor Tree where
-     fmap f (Leaf x)     = Leaf (f x)
-     fmap f (Node x l r) = Node (f x) (fmap f l) (fmap f r)
+--instance Functor Tree where
+--     fmap f (Leaf x)     = Leaf (f x)
+--     fmap f (Node x l r) = Node (f x) (fmap f l) (fmap f r)
 
 -----
 
@@ -301,23 +305,24 @@ cons x (RAList s wts) = RAList (s+1) $
 xs ++ ys | null ys   = xs                   -- small optimization to avoid consing to empty
          | otherwise = foldr cons ys xs
 
+
+uncons :: RAList a -> Maybe (a, RAList a)
+uncons (RAList _ Nil) =  Nothing
+uncons (RAList s (Cons _ (Leaf h)     wts)) =  Just (h,RAList (s-1) wts)
+uncons (RAList s (Cons w (Node x l r) wts)) = Just (x, RAList (s-1) (Cons w2 l (Cons w2 r wts)))
+  where w2 = w `quot` 2
+
 -- | Complexity /O(1)/.
-head :: RAList a -> a
-head (RAList _ Nil) = errorEmptyList "head"
-head (RAList _ (Cons _ (Leaf x)     _)) = x
-head (RAList _ (Cons _ (Node x _ _) _)) = x
+head :: RAList a -> Maybe a
+head = fmap fst  . uncons
 
 -- | Complexity /O(log n)/.
 last :: RAList a -> a
 last xs@(RAList s _) = xs !! (s-1)
 
 -- | Complexity /O(1)/.
-tail :: RAList a -> RAList a
-tail (RAList _ Nil) = errorEmptyList "tail"
-tail (RAList s (Cons _ (Leaf _)     wts)) = RAList (s-1) wts
-tail (RAList s (Cons w (Node _x l r) wts)) = RAList (s-1) (Cons w2 l (Cons w2 r wts))
-  where w2 = w `quot` 2
-
+tail :: RAList a -> Maybe (RAList a)
+tail = fmap snd . uncons
 -- XXX Is there some clever way to do this?
 init :: RAList a -> RAList a
 init = fromList . Prelude.init . toList
@@ -331,6 +336,8 @@ length (RAList s _) = s
 
 map :: (a->b) -> RAList a -> RAList b
 map = fmap
+
+
 
 reverse :: RAList a -> RAList a
 reverse = fromList . Prelude.reverse . toList
@@ -420,12 +427,14 @@ lookup x xys = Prelude.lookup x (toList xys)
 
 filter :: (a->Bool) -> RAList a -> RAList a
 filter p xs =
-    if null xs then
-        empty
-    else
-        let x = head xs
-            ys = filter p (tail xs)
-        in  if p x then x `cons` ys else ys
+    case uncons xs of
+      Nothing -> empty
+      Just(h,tl) ->
+        let
+           ys = filter p tl
+        in
+           if p h then h `cons` ys else  ys
+
 
 partition :: (a->Bool) -> RAList a -> (RAList a, RAList a)
 partition p xs = (filter p xs, filter (not . p) xs)
