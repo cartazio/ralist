@@ -1,6 +1,8 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE ExplicitForAll #-}
+{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE DeriveFoldable , DeriveTraversable#-}
 -- |
 -- A random-access list implementation based on Chris Okasaki's approach
@@ -29,6 +31,19 @@ module Data.RAList
    , init
    , null
    , length
+
+   -- * Indexing lists
+   -- | These functions treat a list @xs@ as a indexed collection,
+   -- with indices ranging from 0 to @'length' xs - 1@.
+
+   , (!!)
+   ,lookupWithDefault
+   ,lookupM
+   ,lookup
+
+   --- * KV indexing
+   --- | This function treats a RAList as an association list
+   ,lookupL
 
    -- * List transformations
    , map
@@ -114,18 +129,14 @@ module Data.RAList
    -- ** Searching by equality
    , elem
    , notElem
-   , lookup
+
 {-RA
    -- ** Searching with a predicate
    , find
 -}
    , filter
    , partition
-   -- * Indexing lists
-   -- | These functions treat a list @xs@ as a indexed collection,
-   -- with indices ranging from 0 to @'length' xs - 1@.
 
-   , (!!)
 {-RA
    , elemIndex
    , elemIndices
@@ -224,7 +235,7 @@ import Data.Monoid(Monoid,mappend,mempty)
 #endif
 import Data.Semigroup(Semigroup,(<>))
 import Data.Data(Data,Typeable)
-
+import Data.Functor.Identity(runIdentity)
 
 infixl 9  !!
 infixr 5  `cons`, ++
@@ -319,6 +330,59 @@ head = fmap fst  . uncons
 -- | Complexity /O(log n)/.
 last :: RAList a -> a
 last xs@(RAList s _) = xs !! (s-1)
+
+half :: Int -> Int
+half n = n `quot` 2
+
+-- | Complexity /O(log n)/.
+(!!) :: RAList a -> Int -> a
+RAList s wts !! n | n <  0 = error "Data.RAList.!!: negative index"
+                  | n >= s = error "Data.RAList.!!: index too large"
+                  | otherwise = ix n wts
+  where ix j (Cons w t wts') | n < w     = ixt j (w `quot` 2) t
+                             | otherwise = ix (j-w) wts'
+        ix _ _ = error "Data.RAList.!!: impossible"
+        ixt 0 0 (Leaf x) = x
+        ixt 0 _ (Node x _l _r) = x
+        ixt j w (Node _x l r) | j <= w    = ixt (j-1)   (w `quot` 2) l
+                             | otherwise = ixt (j-1-w) (w `quot` 2) r
+        ixt _j _w _ = error "Data.RAList.!!: impossible"
+
+lookup :: forall a. Int -> Top a -> a
+lookup i xs = runIdentity (lookupM i xs)
+
+lookupM :: forall (m :: * -> *) a. Monad m => Int -> Top a -> m a
+lookupM jx zs = look zs jx
+  where look Nil _ = fail "RandList.lookup bad subscript"
+        look (Cons j t xs) i
+            | i < j     = lookTree j t i
+            | otherwise = look xs (i - j)
+
+        lookTree _ (Leaf x) i
+            | i == 0    = return x
+            | otherwise = nothing
+        lookTree j (Node x s t) i
+            | i > k  = lookTree k t (i - 1 - k)
+            | i /= 0 = lookTree k s (i - 1)
+            | otherwise = return x
+          where k = half j
+        nothing = fail "RandList.lookup: not found"
+
+lookupWithDefault :: forall t. t -> Int -> Top t -> t
+lookupWithDefault d jx zs = look zs jx
+  where look Nil _ = d
+        look (Cons j t xs) i
+            | i < j     = lookTree j t i
+            | otherwise = look xs (i - j)
+
+        lookTree _ (Leaf x) i
+            | i == 0    = x
+            | otherwise = d
+        lookTree j (Node x s t) i
+            | i > k   = lookTree k t (i - 1 - k)
+            | i /= 0  = lookTree k s (i - 1)
+            | otherwise = x
+          where k = half j
 
 -- | Complexity /O(1)/.
 tail :: RAList a -> Maybe (RAList a)
@@ -422,8 +486,9 @@ elem x = any (== x)
 notElem :: (Eq a) => a -> RAList a -> Bool
 notElem x = any (/= x)
 
-lookup :: (Eq a) => a -> RAList (a, b) -> Maybe b
-lookup x xys = Prelude.lookup x (toList xys)
+-- naive list based lookup
+lookupL :: (Eq a) => a -> RAList (a, b) -> Maybe b
+lookupL x xys = Prelude.lookup x (toList xys)
 
 filter :: (a->Bool) -> RAList a -> RAList a
 filter p xs =
@@ -439,19 +504,7 @@ filter p xs =
 partition :: (a->Bool) -> RAList a -> (RAList a, RAList a)
 partition p xs = (filter p xs, filter (not . p) xs)
 
--- | Complexity /O(log n)/.
-(!!) :: RAList a -> Int -> a
-RAList s wts !! n | n <  0 = error "Data.RAList.!!: negative index"
-                  | n >= s = error "Data.RAList.!!: index too large"
-                  | otherwise = ix n wts
-  where ix j (Cons w t wts') | n < w     = ixt j (w `quot` 2) t
-                             | otherwise = ix (j-w) wts'
-        ix _ _ = error "Data.RAList.!!: impossible"
-        ixt 0 0 (Leaf x) = x
-        ixt 0 _ (Node x _l _r) = x
-        ixt j w (Node _x l r) | j <= w    = ixt (j-1)   (w `quot` 2) l
-                             | otherwise = ixt (j-1-w) (w `quot` 2) r
-        ixt _j _w _ = error "Data.RAList.!!: impossible"
+
 
 
 zip :: RAList a -> RAList b -> RAList (a, b)
