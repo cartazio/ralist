@@ -15,10 +15,10 @@ main = hspec $ do
   
 
   describe "RAList.uncons" $ do
-    it "deletes the first Data.RAList.element of a list of length 1" $ do
+    it "deletes the first element of a list of length 1" $ do
       uncons (fromList ['a']) `shouldBe` 
         (Just ('a',(fromList [])) :: Maybe (Char, RAList Char))
-    it "deletes the first Data.RAList.element of a list of length 3" $ do
+    it "deletes the first element of a list of length 3" $ do
       uncons (fromList ['a'..'c']) `shouldBe` 
         (Just ('a',(fromList ['b','c'])) :: Maybe (Char, RAList Char))
     it "returns Nothing when it uncons from an empty list" $ do
@@ -26,52 +26,52 @@ main = hspec $ do
         (Nothing :: Maybe (Char, RAList Char))
 
   describe "RAList.head" $ do -- This is a Maybe
-    it "gets the first Data.RAList.element of a list of length 1" $ do
+    it "gets the first element of a list of length 1" $ do
       (Data.RAList.head (fromList [1]) ) `shouldBe`
         (Just 1 :: Maybe Integer)
-    it "gets the first Data.RAList.element of a list of length 3" $ do
+    it "gets the first element of a list of length 3" $ do
       (Data.RAList.head (fromList [1..3])) `shouldBe` 
         (Just 1 :: Maybe Integer)
-    it "gets the first Data.RAList.element of a list of length 9" $ do
+    it "gets the first element of a list of length 9" $ do
       (Data.RAList.head (fromList [1..9])) `shouldBe`
         (Just 1 :: Maybe Integer)
     it "gets nothing if the list is empty" $ do
       Data.RAList.head empty `shouldBe` (Nothing :: Maybe Integer)
 
   describe "RAList.last" $ do -- This is not a Maybe
-    it "gets the last Data.RAList.element of a list of length 1" $ do
+    it "gets the last element of a list of length 1" $ do
        (Data.RAList.last (fromList [1]) ) `shouldBe`
         (1 :: Integer)
-    it "gets the last Data.RAList.element of a list of length 3" $ do
+    it "gets the last element of a list of length 3" $ do
       Data.RAList.last (fromList [1..3]) `shouldBe` 
         (3 :: Integer)
-    it "gets the last Data.RAList.element of a list of length 9" $ do
+    it "gets the last element of a list of length 9" $ do
       Data.RAList.last (fromList [1..9]) `shouldBe`
         (9 :: Integer)
     it "gets nothing if the list is empty" $ do
       evaluate (Data.RAList.last empty) `shouldThrow` anyException
     
   describe "RAList.tail" $ do -- This is a Maybe
-    it "gets everything after the first Data.RAList.element of a list of length 1" $ do
+    it "gets everything after the first element of a list of length 1" $ do
       (Data.RAList.tail (fromList [1]) ) `shouldBe`
         (Just (fromList []) :: Maybe (RAList Integer))
-    it "gets everything after the first Data.RAList.element of a list of length 3" $ do
+    it "gets everything after the first element of a list of length 3" $ do
       (Data.RAList.tail (fromList [1..3])) `shouldBe`
         (Just (fromList [2,3]) :: Maybe (RAList Integer))
-    it "gets everything after the first Data.RAList.element of a list of length 9" $ do
+    it "gets everything after the first element of a list of length 9" $ do
       (Data.RAList.tail (fromList [1..9])) `shouldBe`
         (Just (fromList [2..9]) :: Maybe (RAList Integer))
     it "gets nothing if the list is empty" $ do
       Data.RAList.tail empty `shouldBe` (Nothing :: Maybe (RAList Integer))
 
   describe "RAList.init" $ do -- This is not a Maybe
-    it "gets everything before the last Data.RAList.element of a list of length 1" $ do
+    it "gets everything before the last element of a list of length 1" $ do
        (Data.RAList.init (fromList [1]) ) `shouldBe`
         (fromList [] :: RAList Integer)
-    it "gets everything but the last Data.RAList.element of a list of length 3" $ do
+    it "gets everything but the last element of a list of length 3" $ do
       Data.RAList.init (fromList [1..3]) `shouldBe`
         (fromList [1,2] :: RAList Integer)
-    it "gets everything but the last Data.RAList.element of a list of length 9" $ do
+    it "gets everything but the last element of a list of length 9" $ do
       Data.RAList.init (fromList [1..9]) `shouldBe`
         (fromList [1..8] :: RAList Integer)
 
@@ -372,10 +372,11 @@ main = hspec $ do
          Data.RAList.all (\x -> x)
           (Data.RAList.replicate 9 False)
            `shouldBe` (False :: Bool)
-       it "returns False with a list containing one value which evaluates to False"
+       it "returns False with a list of one value which evaluates to False"
         $ do
          Data.RAList.all (\x -> x) (fromList [False]) `shouldBe` (False :: Bool)
-       it " returns True with a list containing one value which evaluates to True"        $ do
+       it " returns True with a list of one value which evaluates to True"
+        $ do
          Data.RAList.all (\x -> x) (fromList [True]) `shouldBe` (True :: Bool)
        it "returns True when the only value evaluates to True" $ do
          Data.RAList.all (\x -> x)
