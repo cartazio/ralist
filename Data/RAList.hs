@@ -535,9 +535,9 @@ adjust :: (a->a) -> Int -> RAList a -> RAList a
 adjust f n (RAList s wts) | n <  0 = error "Data.RAList.adjust: negative index"
                           | n >= s = error "Data.RAList.adjust: index too large"
                           | otherwise = RAList s (adj n wts)
-  where adj j (Cons w t wts') | n < w     = Cons w (adjt j (w `quot` 2) t) wts'
-                              | otherwise = Cons w t (adj (n-w) wts')
-        adj _ _ = error "Data.RAList.adjust: impossible"
+  where adj j (Cons w t wts') | j < w     = Cons w (adjt j (w `quot` 2) t) wts'
+                              | otherwise = Cons w t (adj (j-w) wts')
+        adj j _ = error ("Data.RAList.adjust: impossible Nil element: " <> show j)
         adjt 0 0 (Leaf x) = Leaf (f x)
         adjt 0 _ (Node x l r) = Node (f x) l r
         adjt j w (Node x l r) | j <= w    = Node x (adjt (j-1) (w `quot` 2) l) r
