@@ -484,7 +484,7 @@ elem :: (Eq a) => a -> RAList a -> Bool
 elem x = any (== x)
 
 notElem :: (Eq a) => a -> RAList a -> Bool
-notElem x = any (/= x)
+notElem x = not . elem x -- aka all (/=)
 
 -- naive list based lookup
 lookupL :: (Eq a) => a -> RAList (a, b) -> Maybe b
