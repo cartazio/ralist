@@ -339,7 +339,7 @@ half n = n `quot` 2
 RAList s wts !! n | n <  0 = error "Data.RAList.!!: negative index"
                   | n >= s = error "Data.RAList.!!: index too large"
                   | otherwise = ix n wts
-  where ix j (Cons w t wts') | n < w     = ixt j (w `quot` 2) t
+  where ix j (Cons w t wts') | j < w     = ixt j (w `quot` 2) t
                              | otherwise = ix (j-w) wts'
         ix _ _ = error "Data.RAList.!!: impossible"
         ixt 0 0 (Leaf x) = x
@@ -367,6 +367,7 @@ lookupM jx zs = look zs jx
             | otherwise = return x
           where k = half j
         nothing = fail "RandList.lookup: not found"
+        --- this wont fly long term
 
 lookupWithDefault :: forall t. t -> Int -> Top t -> t
 lookupWithDefault d jx zs = look zs jx
