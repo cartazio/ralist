@@ -474,9 +474,35 @@ drop n xs | n <= 0 = xs
 drop n _xs@(RAList s _) | n >= s = empty
 drop n (RAList s wts) = RAList (s-n) (loop n wts)
   where loop 0 xs = xs
-        loop n1 (Cons w _ xs) | w <= n1 = loop (n1-w) xs
-        loop n2 (Cons w (Node _ l r) xs) = loop (n2-1) (Cons w2 l (Cons w2 r xs)) where w2 = w `quot` 2
+        loop n1 (Cons w _ xs) | w <= n1 = loop (n1-w) xs -- drops full trees
+        loop n2 (Cons w tre xs) = splitTree n2 w tre xs -- splits tree
         loop _ _ = error "Data.RAList.drop: impossible"
+
+-- helper function for drop
+-- drops the first n elements of the tree and adds them to the front
+splitTree :: Int -> Int -> Tree a -> Top a -> Top a
+splitTree n treeSize tre xs | n == 0 = Cons treeSize tre xs
+splitTree n treeSize (Node _ l r) xs
+  | n == 1 = (Cons halfTreeSize l (Cons halfTreeSize r xs))
+  | n <= halfTreeSize = splitTree (n-1) halfTreeSize l (Cons halfTreeSize r xs)
+  | n > halfTreeSize = splitTree (n-halfTreeSize-1) halfTreeSize r xs
+    where halfTreeSize = treeSize `quot` 2
+splitTree n treeSize nd xs 
+  | n == 1 = xs
+  | n == 0 = Cons treeSize nd xs
+
+-- Old version of drop
+-- worst case complexity /O(n)/
+simpleDrop :: Int -> RAList a -> RAList a
+simpleDrop n xs | n <= 0 = xs
+simpleDrop n _xs@(RAList s _) | n >= s = empty
+simpleDrop n (RAList s wts) = RAList (s-n) (loop n wts)
+    where loop 0 xs = xs
+          loop n1 (Cons w _ xs) | w <= n1 = loop (n1-w) xs
+          loop n2 (Cons w (Node _ l r) xs) = loop (n2-1) (Cons w2 l (Cons w2 r xs)) 
+            where w2 = w `quot` 2
+          loop _ _ = error "Data.RAList.drop: impossible"
+
 
 splitAt :: Int -> RAList a -> (RAList a, RAList a)
 splitAt n xs = (take n xs, drop n xs)
