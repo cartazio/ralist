@@ -1,8 +1,8 @@
 Name:           ralist
 Cabal-Version:  >= 1.20
-Version:        0.1.0.0
+Version:        0.2.0.0
 License:        BSD3
-Author:         Lennart Augustsson
+Author:         Lennart Augustsson, Carter Schonwald
 Maintainer:     Carter Schonwald
 Category:       Data Structures
 Synopsis:       Random access list with a list compatible interface.
