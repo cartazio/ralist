@@ -12,19 +12,19 @@ main = hspec $ do
     it "adds to a list of length 1" $ do
       cons 1 (fromList [2]) `shouldBe` (fromList [1,2] :: RAList Int)
     it "add to a list of length 10" $ do
-      cons 1 (fromList [2..11]) `shouldBe` 
+      cons 1 (fromList [2..11]) `shouldBe`
         (fromList [1..11] :: RAList Int)
-  
+
 
   describe "RAList.uncons" $ do
     it "deletes the first element of a list of length 1" $ do
-      uncons (fromList ['a']) `shouldBe` 
+      uncons (fromList ['a']) `shouldBe`
         (Just ('a',(fromList [])) :: Maybe (Char, RAList Char))
     it "deletes the first element of a list of length 3" $ do
-      uncons (fromList ['a'..'c']) `shouldBe` 
+      uncons (fromList ['a'..'c']) `shouldBe`
         (Just ('a',(fromList ['b','c'])) :: Maybe (Char, RAList Char))
     it "returns Nothing when it uncons from an empty list" $ do
-      (uncons empty :: Maybe (Char, RAList Char)) `shouldBe` 
+      (uncons empty :: Maybe (Char, RAList Char)) `shouldBe`
         (Nothing :: Maybe (Char, RAList Char))
 
   describe "RAList.head" $ do -- This is a Maybe
@@ -32,7 +32,7 @@ main = hspec $ do
       (Data.RAList.head (fromList [1]) ) `shouldBe`
         (Just 1 :: Maybe Integer)
     it "gets the first element of a list of length 3" $ do
-      (Data.RAList.head (fromList [1..3])) `shouldBe` 
+      (Data.RAList.head (fromList [1..3])) `shouldBe`
         (Just 1 :: Maybe Integer)
     it "gets the first element of a list of length 9" $ do
       (Data.RAList.head (fromList [1..9])) `shouldBe`
@@ -45,14 +45,14 @@ main = hspec $ do
        (Data.RAList.last (fromList [1]) ) `shouldBe`
         (1 :: Integer)
     it "gets the last element of a list of length 3" $ do
-      Data.RAList.last (fromList [1..3]) `shouldBe` 
+      Data.RAList.last (fromList [1..3]) `shouldBe`
         (3 :: Integer)
     it "gets the last element of a list of length 9" $ do
       Data.RAList.last (fromList [1..9]) `shouldBe`
         (9 :: Integer)
     it "gets nothing if the list is empty" $ do
       evaluate (Data.RAList.last empty) `shouldThrow` anyException
-    
+
   describe "RAList.tail" $ do -- This is a Maybe
     it "gets everything after the first element of a list of length 1" $ do
       (Data.RAList.tail (fromList [1]) ) `shouldBe`
@@ -80,11 +80,11 @@ main = hspec $ do
     it "gets nothing if the list is empty" $ do
       evaluate (Data.RAList.init empty) `shouldThrow` anyException
 
-  describe "RAList.null" $ do 
+  describe "RAList.null" $ do
     it "returns True if it is given an empty list" $ do
       Data.RAList.null empty `shouldBe` (True :: Bool)
     it "return False if it is given a non-empty list" $ do
-      Data.RAList.null (fromList [1]) `shouldBe` (False :: Bool)  
+      Data.RAList.null (fromList [1]) `shouldBe` (False :: Bool)
 
   describe "RAList.length" $ do
     it "returns 0 if the list is empty" $ do
@@ -94,7 +94,7 @@ main = hspec $ do
     it "returns 3 if the list has lenght 3"$ do
       Data.RAList.length (fromList [1..3]) `shouldBe` (3 :: Int)
     it "returns 9 if the list has length 9" $ do
-      Data.RAList.length (fromList [1..9]) `shouldBe` 
+      Data.RAList.length (fromList [1..9]) `shouldBe`
         (9 :: Int)
 
   describe "RAList.lookupL" $ do
@@ -131,14 +131,14 @@ main = hspec $ do
     describe "for an empty list" $ do
       it "return Nothing when called with an empty list" $ do
         lookupL 'a' empty `shouldBe` (Nothing :: Maybe Char)
-  
+
   describe "RAList.map" $ do
     describe "for a list of length 1" $ do
       it "maps from Int to Int"$ do
-        Data.RAList.map (\x -> 2*x) (fromList [1])  `shouldBe` 
+        Data.RAList.map (\x -> 2*x) (fromList [1])  `shouldBe`
           (fromList [2] :: RAList Int)
       it "maps from Int to String" $ do
-        Data.RAList.map (\x -> 'a') (fromList [1]) `shouldBe` 
+        Data.RAList.map (\x -> 'a') (fromList [1]) `shouldBe`
           (fromList ['a'] :: RAList Char)
       it "maps from Char to Int" $ do
         Data.RAList.map (\x -> 1) (fromList ['a']) `shouldBe`
@@ -147,7 +147,7 @@ main = hspec $ do
         Data.RAList.map (\x -> [x]) (fromList [1]) `shouldBe`
           (fromList [[1]] :: RAList [Int])
       it "maps from [Int] to Int" $ do
-        Data.RAList.map (\x -> x Prelude.!! 0) 
+        Data.RAList.map (\x -> x Prelude.!! 0)
           ((fromList [[1]]) :: RAList [Int])
           `shouldBe` (fromList [1] :: RAList Int)
     describe "for a list of length 3" $ do
@@ -157,16 +157,16 @@ main = hspec $ do
     describe "for a list of length 9" $ do
       it "maps from Int to Int" $ do
         Data.RAList.map (\x -> 2*x) (fromList [1..9])
-          `shouldBe` 
+          `shouldBe`
           ((fromList [2,4..18]) :: RAList Int)
     describe "for an empty list" $ do
       it "returns an empty list of correct type" $ do
         Data.RAList.map (\x -> 'a') empty `shouldBe`
           (empty :: RAList Char)
-      
+
   describe "RAList.reverse" $ do
     it "does nothing to a list of length 1" $ do
-      Data.RAList.reverse (fromList [1]) `shouldBe` 
+      Data.RAList.reverse (fromList [1]) `shouldBe`
         (fromList [1] :: RAList Int)
     it "reverses a list of length 3" $ do
       Data.RAList.reverse (fromList [1..3]) `shouldBe`
@@ -175,14 +175,14 @@ main = hspec $ do
       Data.RAList.reverse (fromList [1..9]) `shouldBe`
         (fromList [9,8..1] :: RAList Int)
     it "does nothing to an empty list" $ do
-      Data.RAList.reverse (empty :: RAList Int) `shouldBe` 
+      Data.RAList.reverse (empty :: RAList Int) `shouldBe`
         (empty :: RAList Int)
 
   -- Only tests for one list length because it immediately turns the RALists
   -- into standard lists with 'toList', which is tested elsewhere
   describe "folds" $ do
     let rai = fromList [1..3]
-    let ras = fromList ["a","b","c"] 
+    let ras = fromList ["a","b","c"]
     describe "RAList.foldl" $ do
       it "adds Ints in a list" $ do
         Data.RAList.foldl (+) 0 rai `shouldBe` (6 :: Int)
@@ -196,7 +196,7 @@ main = hspec $ do
         Data.RAList.foldl1 (+) rai `shouldBe` (6 :: Int)
       it "subtracts Ints in a list" $ do
         Data.RAList.foldl1 (-) rai `shouldBe` ((-4) :: Int)
-      it "concatenates Strings in a list" $ do           
+      it "concatenates Strings in a list" $ do
         Data.RAList.foldl1 (Prelude.++) ras `shouldBe`
           ("abc" :: [Char])
     describe "RAList.foldr" $ do
@@ -209,7 +209,7 @@ main = hspec $ do
           ("abc" :: [Char])
     describe "RAList.foldr1" $ do
       it "adds Ints in a list" $ do
-        Data.RAList.foldr1 (+) rai `shouldBe` (6 :: Int) 
+        Data.RAList.foldr1 (+) rai `shouldBe` (6 :: Int)
       it "subtracts Ints in a list" $ do
         Data.RAList.foldr1 (-) rai `shouldBe` (2 :: Int)
       it "concatenates characters in a list" $ do
@@ -223,14 +223,14 @@ main = hspec $ do
     it "concatenates an empty list" $ do
       Data.RAList.concat empty `shouldBe` (empty :: RAList Integer)
     it "concatenates lists of the same length" $ do
-      Data.RAList.concat 
+      Data.RAList.concat
         (fromList [fromList [1,2], fromList [1,2], fromList [1,2]])
         `shouldBe` (fromList [1,2,1,2,1,2] :: RAList Int)
-    it "concatenates lists of different lengths" $ do       
-      Data.RAList.concat 
-        (fromList [fromList [], fromList [1], fromList [1,2], 
+    it "concatenates lists of different lengths" $ do
+      Data.RAList.concat
+        (fromList [fromList [], fromList [1], fromList [1,2],
           fromList [1..3], fromList [1..9]])
-        `shouldBe` 
+        `shouldBe`
         (fromList [1,1,2,1,2,3,1,2,3,4,5,6,7,8,9] :: RAList Int)
 
   describe "RAList.concatMap" $ do
@@ -240,9 +240,9 @@ main = hspec $ do
            (fromList [1]) `shouldBe`
            (fromList [1] :: RAList Int)
        it "maps (x -> [1, length x]) on a list of Strings" $ do
-         Data.RAList.concatMap 
-           (\x -> fromList [1, (Prelude.length x)]) 
-           (fromList ["abc"]) `shouldBe` 
+         Data.RAList.concatMap
+           (\x -> fromList [1, (Prelude.length x)])
+           (fromList ["abc"]) `shouldBe`
            (fromList [1,3] :: RAList Int)
        it "returns an empty list when it maps to an empty list" $ do
          Data.RAList.concatMap
@@ -254,9 +254,9 @@ main = hspec $ do
           (fromList [1..3]) `shouldBe`
           (fromList [1..3] :: RAList Int)
       it "maps (x -> [1, length x]) on a list of Strings" $ do
-        Data.RAList.concatMap 
-          (\x -> fromList [1, (Prelude.length x)]) 
-          (fromList ["a","ab", "abc"]) `shouldBe` 
+        Data.RAList.concatMap
+          (\x -> fromList [1, (Prelude.length x)])
+          (fromList ["a","ab", "abc"]) `shouldBe`
           (fromList [1,1,1,2,1,3] :: RAList Int)
       it "returns an empty list when it maps to an empty list" $ do
         Data.RAList.concatMap
@@ -268,11 +268,11 @@ main = hspec $ do
             (fromList [1..9]) `shouldBe`
             (fromList [1..9] :: RAList Int)
         it "maps (x -> [1, length x]) on a list of Strings" $ do
-          Data.RAList.concatMap 
-            (\x -> fromList [1, (Prelude.length x)]) 
-            (fromList ["a","ab", "abc","a","a","a","a","a","abcd"]) 
-            `shouldBe` 
-            (fromList [1,1,1,2,1,3,1,1,1,1,1,1,1,1,1,1,1,4] 
+          Data.RAList.concatMap
+            (\x -> fromList [1, (Prelude.length x)])
+            (fromList ["a","ab", "abc","a","a","a","a","a","abcd"])
+            `shouldBe`
+            (fromList [1,1,1,2,1,3,1,1,1,1,1,1,1,1,1,1,1,4]
             :: RAList Int)
         it "returns an empty list when it maps to an empty list" $ do
           Data.RAList.concatMap
@@ -280,9 +280,9 @@ main = hspec $ do
             (fromList [] :: RAList Int)
 
   describe "logic functions" $ do
-    describe "Data.RAList.and" $ do                                           
+    describe "Data.RAList.and" $ do
       it "returns False when first value is False" $ do
-        Data.RAList.and 
+        Data.RAList.and
           (fromList [False, True, True, True, True, True, True, True,
           True])
           `shouldBe` (False :: Bool)
@@ -301,7 +301,7 @@ main = hspec $ do
       it " returns True with a list of length one containing True" $ do
         Data.RAList.and (fromList [True]) `shouldBe` (True :: Bool)
       it "returns True when the only value is True" $ do
-        Data.RAList.and 
+        Data.RAList.and
           (fromList [True, True, True, True, True, True, True, True,
           True])
           `shouldBe` (True :: Bool)
@@ -349,7 +349,7 @@ main = hspec $ do
           (Data.RAList.replicate 9 False)
           `shouldBe` (False :: Bool)
       it "returns False with a list of length one containing False" $ do
-        Data.RAList.any (\x -> x) (fromList [False]) `shouldBe` 
+        Data.RAList.any (\x -> x) (fromList [False]) `shouldBe`
           (False :: Bool)
       it " returns True with a list of length one containing True" $ do
         Data.RAList.any  (\x -> x) (fromList [True]) `shouldBe` (True :: Bool)
@@ -403,11 +403,11 @@ main = hspec $ do
       it "multiplies all ints in a list of length 3" $ do
         Data.RAList.product (fromList [2,2,2]) `shouldBe` (8 :: Int)
       it "multiplies all ints in a list of length 9" $ do
-        Data.RAList.product (Data.RAList.replicate 9 2) `shouldBe` 
+        Data.RAList.product (Data.RAList.replicate 9 2) `shouldBe`
           (512 :: Int)
       it "returns 1 when given an empty list" $ do
         Data.RAList.product empty `shouldBe` (1 :: Int)
-  
+
   describe "extrema" $ do
     describe "RAList.maximum" $ do
       describe "for list of length 1" $ do
@@ -431,23 +431,23 @@ main = hspec $ do
         it "can return the last value" $ do
           -- Specifies the list rather than updating the last value
           -- because update is currently broken
-          Data.RAList.maximum (fromList [1,2,3,4,5,6,7,8,10]) `shouldBe` 
+          Data.RAList.maximum (fromList [1,2,3,4,5,6,7,8,10]) `shouldBe`
             (10 :: Int)
       describe "for an empty list" $ do
         it "throws an exception" $ do
           evaluate (Data.RAList.maximum (empty :: RAList Int)) `shouldThrow`
             anyException
   describe "RAList.minimum" $ do
-    describe "other" $ do  
-      describe "for list of length 1" $ do 
+    describe "other" $ do
+      describe "for list of length 1" $ do
         it "returns the value" $ do
           Data.RAList.minimum (fromList [1]) `shouldBe` (1 :: Int)
-      describe "for a list of length 3" $ do 
+      describe "for a list of length 3" $ do
         it "can return the first value" $ do
           Data.RAList.minimum (fromList [1,3,2]) `shouldBe` (1 :: Int)
         it "can return the last value" $ do
           Data.RAList.minimum (fromList [3,2,1]) `shouldBe` (1 :: Int)
-    
+
       describe "for a list of length 9" $ do
         let ra = fromList [1..9]
         it "can return the first value" $ do
@@ -474,7 +474,7 @@ main = hspec $ do
     it "creates a list of length 3" $ do
       Data.RAList.replicate 3 1 `shouldBe` (fromList [1,1,1] :: RAList Int)
     it "creates a list of length 9" $ do
-      Data.RAList.replicate 9 1 `shouldBe` 
+      Data.RAList.replicate 9 1 `shouldBe`
         (fromList [1,1,1,1,1,1,1,1,1] :: RAList Int)
 
   describe "RAList.take" $ do
@@ -491,7 +491,7 @@ main = hspec $ do
       Data.RAList.take 9 ra `shouldBe` (ra :: RAList Int)
     it "gives an empty list when you Data.RAList.take from an empty list" $ do
       Data.RAList.take 1 empty `shouldBe` (empty :: RAList Int)
-                                                                               
+
   describe "RAList.drop" $ do
     let ra = fromList [1..9]
     it "drops the first Data.RAList.element of a list" $ do
@@ -513,25 +513,25 @@ main = hspec $ do
     let ra = fromList [1..9]
     it "splitAts the first Data.RAList.element of a list" $ do
       Data.RAList.splitAt  1 ra `shouldBe`
-        ((fromList [1], fromList [2..9]) :: 
+        ((fromList [1], fromList [2..9]) ::
         (RAList Int, RAList Int) )
     it "splitAts the second Data.RAList.element of a list" $ do
       Data.RAList.splitAt 2 ra `shouldBe`
-        ((fromList [1,2], fromList [3..9]) :: 
+        ((fromList [1,2], fromList [3..9]) ::
         (RAList Int, RAList Int) )
     it "splitAts the third Data.RAList.element of a list" $ do
       Data.RAList.splitAt 3 ra `shouldBe`
-        ((fromList [1..3], fromList [4..9]) :: 
+        ((fromList [1..3], fromList [4..9]) ::
         (RAList Int, RAList Int) )
     it "splitAts the fourth Data.RAList.element of a list" $ do
       Data.RAList.splitAt 4 ra `shouldBe`
-        ((fromList [1..4], fromList [5..9]) :: 
+        ((fromList [1..4], fromList [5..9]) ::
         (RAList Int, RAList Int) )
     it "splitAts the last Data.RAList.element of a list" $ do
-      Data.RAList.splitAt 9 ra `shouldBe` 
+      Data.RAList.splitAt 9 ra `shouldBe`
         ((ra, empty) :: (RAList Int, RAList Int) )
     it "gives an empty list when you splitAt from an empty list" $ do
-      Data.RAList.splitAt 1 empty `shouldBe` 
+      Data.RAList.splitAt 1 empty `shouldBe`
         ((empty, empty) :: (RAList Int, RAList Int) )
 
   describe "RAList.elem" $ do
@@ -543,11 +543,11 @@ main = hspec $ do
     it "can find the third Data.RAList.element of a list" $ do
       Data.RAList.elem 3 ra `shouldBe` (True :: Bool)
     it "can find the fourth Data.RAList.element of a list" $ do
-      Data.RAList.elem 4 ra `shouldBe` (True :: Bool)          
+      Data.RAList.elem 4 ra `shouldBe` (True :: Bool)
     it "can find the last Data.RAList.element of a list" $ do
       Data.RAList.elem 5 ra `shouldBe` (True :: Bool)
     it "returns false if the Data.RAList.element is not present" $ do
-      Data.RAList.elem 10 ra `shouldBe` (False :: Bool)              
+      Data.RAList.elem 10 ra `shouldBe` (False :: Bool)
     it "returns false when given an empty list" $ do
       Data.RAList.elem 1 empty `shouldBe` (False :: Bool)
 
@@ -626,26 +626,26 @@ main = hspec $ do
         Data.RAList.zip (Data.RAList.take 3 ra1) (Data.RAList.take 3 ra2)
         `shouldBe`
           ((Data.RAList.take 3 ra3) :: RAList (Int, Char))
-      it "can zip two lists of length 1" $ do                                 
+      it "can zip two lists of length 1" $ do
         Data.RAList.zip (Data.RAList.take 1 ra1) (Data.RAList.take 2 ra2)
           `shouldBe`
-          (Data.RAList.take 1 ra3 :: RAList (Int,Char))                  
+          (Data.RAList.take 1 ra3 :: RAList (Int,Char))
       it "can zip two lists of different lengths" $ do
         Data.RAList.zip ra1 (Data.RAList.take 5 ra2) `shouldBe`
           (Data.RAList.take 5 ra3 :: RAList (Int, Char))
-      it "can zip a list to an empty list" $ do 
+      it "can zip a list to an empty list" $ do
         Data.RAList.zip empty ra2 `shouldBe`  (empty :: RAList (Int, Char))
       it "can zip two empty lists" $ do
         Data.RAList.zip empty empty `shouldBe` (empty :: RAList (Int, Char))
     describe "RAList.unzip" $ do
-      it "can unzip two lists of length 9" $ do 
+      it "can unzip two lists of length 9" $ do
         Data.RAList.unzip ra3 `shouldBe`
           ((ra1,ra2) :: (RAList Int, RAList Char))
       it "can unzip two lists of length 3" $ do
         Data.RAList.unzip (Data.RAList.take 3 ra3) `shouldBe`
           (((Data.RAList.take 3 ra1),(Data.RAList.take 3 ra2)) ::
           (RAList Int, RAList Char))
-      it "can unzip two lists of length 1" $ do                            
+      it "can unzip two lists of length 1" $ do
         Data.RAList.unzip (Data.RAList.take 1 ra3) `shouldBe`
           (((Data.RAList.take 1 ra1), (Data.RAList.take 1 ra2)) ::
           (RAList Int, RAList Char))
@@ -654,20 +654,20 @@ main = hspec $ do
       let ra2 = Data.RAList.replicate 9 1
       let ra3 = fromList [2,3..10]
       let f = (\x y -> x + y)
-      it "can zip two lists of length 9" $ do 
+      it "can zip two lists of length 9" $ do
         Data.RAList.zipWith f ra1 ra2 `shouldBe` (ra3 :: RAList Int)
       it "cannp.zipWith two lists of length 3" $ do
         Data.RAList.zipWith f (Data.RAList.take 3 ra1) (Data.RAList.take 3 ra2)
           `shouldBe`
           ((Data.RAList.take 3 ra3) :: RAList Int)
-      it "can zip two lists of length 1" $ do                               
+      it "can zip two lists of length 1" $ do
         Data.RAList.zipWith f (Data.RAList.take 1 ra1) (Data.RAList.take 2 ra2)
           `shouldBe`
-          (Data.RAList.take 1 ra3 :: RAList Int) 
+          (Data.RAList.take 1 ra3 :: RAList Int)
       it "can zip two lists of different lengths" $ do
         Data.RAList.zipWith f ra1 (Data.RAList.take 5 ra2) `shouldBe`
           (Data.RAList.take 5 ra3 :: RAList Int)
-      it "can zip a list to an empty list" $ do 
+      it "can zip a list to an empty list" $ do
         Data.RAList.zipWith f empty ra2 `shouldBe` (empty :: RAList Int)
       it "can zip two empty lists" $ do
         Data.RAList.zipWith f empty empty `shouldBe`
@@ -690,7 +690,7 @@ main = hspec $ do
       Data.RAList.update 1 10 ra9 `shouldBe`
         (fromList [1,10,3,4,5,6,7,8,9] :: RAList Int)
     it "can update the third value in a list of length 9" $ do
-      Data.RAList.update 2 10 ra9 `shouldBe` 
+      Data.RAList.update 2 10 ra9 `shouldBe`
         (fromList [1,2,10,4,5,6,7,8,9] :: RAList Int)
     it "can update the fourth value in a list of length 9" $ do
       Data.RAList.update 3 10 ra9 `shouldBe`
@@ -712,4 +712,4 @@ main = hspec $ do
       toList (fromList [1..9]) `shouldBe` ([1..9] :: [Int])
     it "converts an empty list" $ do
       toList (empty) `shouldBe` ([] :: [Int])
-    
+
