@@ -1,4 +1,3 @@
-{-#LANGUAGE Safe #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveFunctor #-}

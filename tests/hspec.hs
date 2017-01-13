@@ -1,3 +1,5 @@
+module Main where
+
 import Data.RAList
 import Test.Hspec
 import Control.Exception (evaluate)

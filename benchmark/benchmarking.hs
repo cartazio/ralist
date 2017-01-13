@@ -1,4 +1,5 @@
-{-#LANGUAGE Safe #-}
+
+module Main where
 import Criterion.Main
 import Data.RAList
 
