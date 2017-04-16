@@ -12,6 +12,13 @@ Description:    Random access list with a list compatible interface.
                 Random access list have same complexity as lists with some exceptions,
                 the notable one being that (!!) is O(log n) instead of O(n).
                 RALists have to be finite.
+-- URL for the project homepage or repository.
+homepage:            http://github.com/cartazio/ralist
+
+source-repository head
+  type: git
+  location: https://github.com/cartazio/ralist.git
+
 
 -- You can disable the hunit test suite with -f-test-hunit
 flag test-hspec
