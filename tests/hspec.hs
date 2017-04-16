@@ -29,16 +29,13 @@ main = hspec $ do
 
   describe "RAList.head" $ do -- This is a Maybe
     it "gets the first element of a list of length 1" $ do
-      (Data.RAList.head (fromList [1]) ) `shouldBe`
-        (Just 1 :: Maybe Integer)
+      (Data.RAList.head (fromList [1 :: Int ]) ) `shouldBe` Just 1
     it "gets the first element of a list of length 3" $ do
-      (Data.RAList.head (fromList [1..3])) `shouldBe`
-        (Just 1 :: Maybe Integer)
+      (Data.RAList.head (fromList [1 .. 3 :: Int ])) `shouldBe` Just 1
     it "gets the first element of a list of length 9" $ do
-      (Data.RAList.head (fromList [1..9])) `shouldBe`
-        (Just 1 :: Maybe Integer)
+      (Data.RAList.head (fromList [1 .. 9 :: Int])) `shouldBe` Just 1
     it "gets nothing if the list is empty" $ do
-      Data.RAList.head empty `shouldBe` (Nothing :: Maybe Integer)
+      Data.RAList.head (fromList ([] :: [Int])) `shouldBe` Nothing
 
   describe "RAList.last" $ do -- This is not a Maybe
     it "gets the last element of a list of length 1" $ do
@@ -68,14 +65,11 @@ main = hspec $ do
 
   describe "RAList.init" $ do -- This is not a Maybe
     it "gets everything before the last element of a list of length 1" $ do
-       (Data.RAList.init (fromList [1]) ) `shouldBe`
-        (fromList [] :: RAList Integer)
+       (Data.RAList.init (fromList [1]) ) `shouldBe` (fromList [] :: RAList Integer)
     it "gets everything but the last element of a list of length 3" $ do
-      Data.RAList.init (fromList [1..3]) `shouldBe`
-        (fromList [1,2] :: RAList Integer)
+      Data.RAList.init (fromList [1..3]) `shouldBe` (fromList [1,2] :: RAList Integer)
     it "gets everything but the last element of a list of length 9" $ do
-      Data.RAList.init (fromList [1..9]) `shouldBe`
-        (fromList [1..8] :: RAList Integer)
+      Data.RAList.init (fromList [1..9]) `shouldBe` (fromList [1..8] :: RAList Integer)
 
     it "gets nothing if the list is empty" $ do
       evaluate (Data.RAList.init empty) `shouldThrow` anyException
@@ -88,14 +82,13 @@ main = hspec $ do
 
   describe "RAList.length" $ do
     it "returns 0 if the list is empty" $ do
-      Data.RAList.length empty `shouldBe` (0 :: Int)
+      Data.RAList.length empty `shouldBe` 0
     it "returns 1 if the list has length 1" $ do
-      Data.RAList.length (fromList [1]) `shouldBe` (1 :: Int)
+      Data.RAList.length (fromList [1]) `shouldBe` 1
     it "returns 3 if the list has lenght 3"$ do
-      Data.RAList.length (fromList [1..3]) `shouldBe` (3 :: Int)
+      Data.RAList.length (fromList [1..3]) `shouldBe` 3
     it "returns 9 if the list has length 9" $ do
-      Data.RAList.length (fromList [1..9]) `shouldBe`
-        (9 :: Int)
+      Data.RAList.length (fromList [1..9]) `shouldBe`  9
 
   describe "RAList.lookupL" $ do
     describe "for a list of length 1" $ do
