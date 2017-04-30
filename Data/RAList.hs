@@ -250,7 +250,7 @@ infixr 5  `cons`, ++
 --   [3,7], [1,3,7], [1,1,3,7], [3,3,7], [7,7], [15], ...
 -- (I.e., skew binary numbers.)
 data RAList a = RAList {-# UNPACK #-} !Word64 !(Top a)
-    deriving (Eq,Data,Typeable,Foldable)
+    deriving (Eq,Data,Typeable,Foldable,Traversable)
 
 instance (Show a) => Show (RAList a) where
     showsPrec p xs = showParen (p >= 10) $ showString "fromList " . showsPrec 10 (toList xs)
