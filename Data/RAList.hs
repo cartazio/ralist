@@ -488,7 +488,7 @@ drop n (RAList s wts) = RAList (s-n) (loop n wts)
 splitTree :: Word64 -> Word64 -> Tree a -> Top a -> Top a
 splitTree n treeSize tree@(Node _ l r) xs =
     case (compare n  1, n <= halfTreeSize) of
-      (GT {- n==0 -}, _ )  -> Cons treeSize tree xs
+      (LT {- n==0 -}, _ )  -> Cons treeSize tree xs
       (EQ {- n==1 -}, _ ) -> Cons halfTreeSize l (Cons halfTreeSize r xs)
       (_, True ) -> splitTree (n-1) halfTreeSize l (Cons halfTreeSize r xs)
       (_, False) -> splitTree (n-halfTreeSize-1) halfTreeSize r xs
