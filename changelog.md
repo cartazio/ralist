@@ -1,3 +1,5 @@
+# 0.2.1.1
+Fix bug in log n time drop
 
 # 0.2.1.0
 Added missing traversable instance
