@@ -1,6 +1,6 @@
-Cabal-Version:  2.2
+cabal-version:    3.0
 Name:           ralist
-Version:        0.2.1.1
+Version:        0.3.0.0
 License:        BSD-3-Clause
 license-file: LICENSE
 Author:         Lennart Augustsson, Carter Schonwald
@@ -32,11 +32,14 @@ Library
   ghc-options: -Wall -O2
   default-language: Haskell2010
   -- Build-depends: semigroups == 0.18.*
-  if impl(ghc >= 8.0)
-    ghc-options: -Wcompat -Wnoncanonical-monad-instances -Wnoncanonical-monadfail-instances
+  if impl(ghc >= 8.0 )
+     if impl(ghc < 8.10 )
+        ghc-options: -Wcompat -Wnoncanonical-monad-instances -Wnoncanonical-monadfail-instances
   else
-    -- provide/emulate `Control.Monad.Fail` and `Data.Semigroups` API for pre-GHC8
-    build-depends: fail == 4.9.*, semigroups == 0.18.*
+
+      build-depends: fail == 4.9.*, semigroups == 0.18.*
+       -- provide/emulate `Control.Monad.Fail` and `Data.Semigroups` API for pre-GHC8
+
 
 test-suite hspec
   type: exitcode-stdio-1.0
@@ -50,7 +53,7 @@ test-suite hspec
   build-depends:
       base,
       ralist,
-      hspec >= 2.2 && < 2.7
+      hspec >= 2.2 && < 2.8
 
 
 benchmark benchmarking

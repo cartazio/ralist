@@ -234,9 +234,13 @@ import qualified Data.List as List
 #if !MIN_VERSION_base(4,9,0) == 1
 import Data.Monoid(Monoid,mappend,mempty)
 #endif
+
+#if MIN_VERSION_base(4,11,0)
+#else
 import Data.Semigroup(Semigroup,(<>))
+#endif
 import Data.Data(Data,Typeable)
-import Data.Functor.Identity(runIdentity)
+--import Data.Functor.Identity(runIdentity)
 import Data.Word
 
 infixl 9  !!
@@ -267,7 +271,11 @@ instance (Ord a) => Ord (RAList a) where
 
 instance Monoid (RAList a) where
     mempty  = empty
+
+#if MIN_VERSION_base(4,11,0)
+#elif MIN_VERSION_base(4,9,0)
     mappend = (<>)
+#endif
 
 instance Semigroup (RAList a) where
     (<>) = (++)
@@ -302,7 +310,7 @@ data Tree a
 --     fmap f (Leaf x)     = Leaf (f x)
 --     fmap f (Node x l r) = Node (f x) (fmap f l) (fmap f r)
 
------
+
 
 empty :: RAList a
 empty = RAList 0 Nil
@@ -338,12 +346,14 @@ half n = n `quot` 2
 
 -- | Complexity /O(log n)/.
 (!!) :: RAList a -> Word64 -> a
-RAList s wts !! n | n <  0 = error "Data.RAList.!!: negative index"
-                  | n >= s = error "Data.RAList.!!: index too large"
-                  | otherwise = ix n wts
-  where ix j (Cons w t wts') | j < w     = ixt j (w `quot` 2) t
+(RAList s wts) !! n | n <  0 = error "Data.RAList.!!: negative index"
+                    | n >= s = error "Data.RAList.!!: index too large"
+                    | otherwise = ix n wts
+  where
+        ix j (Cons w t wts') | j < w     = ixt j (w `quot` 2) t
                              | otherwise = ix (j-w) wts'
         ix _ _ = error "Data.RAList.!!: impossible"
+
         ixt 0 0 (Leaf x) = x
         ixt 0 _ (Node x _l _r) = x
         ixt j w (Node _x l r) | j <= w    = ixt (j-1)   (w `quot` 2) l
@@ -351,24 +361,24 @@ RAList s wts !! n | n <  0 = error "Data.RAList.!!: negative index"
         ixt _j _w _ = error "Data.RAList.!!: impossible"
 
 lookup :: forall a. Word64 -> Top a -> a
-lookup i xs = runIdentity (lookupM i xs)
+lookup i xs = either error id (lookupM i xs)
 
-lookupM :: forall (m :: * -> *) a. Monad m => Word64 -> Top a -> m a
+lookupM :: forall a. Word64 -> Top a -> Either String a
 lookupM jx zs = look zs jx
-  where look Nil _ = fail "RandList.lookup bad subscript"
+  where look Nil _ = Left "RandList.lookup bad subscript"
         look (Cons j t xs) i
             | i < j     = lookTree j t i
             | otherwise = look xs (i - j)
 
         lookTree _ (Leaf x) i
-            | i == 0    = return x
+            | i == 0    = Right x
             | otherwise = nothing
         lookTree j (Node x s t) i
             | i > k  = lookTree k t (i - 1 - k)
             | i /= 0 = lookTree k s (i - 1)
-            | otherwise = return x
+            | otherwise = Right x
           where k = half j
-        nothing = fail "RandList.lookup: not found"
+        nothing = Left "RandList.lookup: not found"
         --- this wont fly long term
 
 lookupWithDefault :: forall t. t -> Word64 -> Top t -> t
