@@ -350,15 +350,15 @@ half n = n `quot` 2
                     | n >= s = error "Data.RAList.!!: index too large"
                     | otherwise = ix n wts
   where
-        ix j (Cons w t wts') | j < w     = ixt j (w `quot` 2) t
+        ix j (Cons w t wts') | j < w     = ixtree j (w `quot` 2) t
                              | otherwise = ix (j-w) wts'
         ix _ _ = error "Data.RAList.!!: impossible"
 
-        ixt 0 0 (Leaf x) = x
-        ixt 0 _ (Node x _l _r) = x
-        ixt j w (Node _x l r) | j <= w    = ixt (j-1)   (w `quot` 2) l
-                             | otherwise = ixt (j-1-w) (w `quot` 2) r
-        ixt _j _w _ = error "Data.RAList.!!: impossible"
+        ixtree 0 0 (Leaf x) = x
+        ixtree 0 _ (Node x _l _r) = x
+        ixtree j w (Node _x l r) | j <= w    = ixtree (j-1)   (w `quot` 2) l
+                             | otherwise = ixtree (j-1-w) (w `quot` 2) r
+        ixtree _j _w _ = error "Data.RAList.!!: impossible"
 
 lookup :: forall a. Word64 -> Top a -> a
 lookup i xs = either error id (lookupM i xs)

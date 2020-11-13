@@ -4,6 +4,14 @@ import Data.RAList
 import Test.Hspec
 import Control.Exception (evaluate)
 
+import Prelude hiding (
+    (++), head, last, tail, init, null, length, map, reverse,
+    foldl, foldl1, foldr, foldr1, concat, concatMap,
+    and, or, any, all, sum, product, maximum, minimum, take,
+    drop, elem, splitAt, notElem, lookup, replicate, (!!), filter,
+    zip, zipWith, unzip
+    )
+import qualified Prelude
 
 main = hspec $ do
   describe "RAList.cons" $ do
@@ -89,6 +97,27 @@ main = hspec $ do
       Data.RAList.length (fromList [1..3]) `shouldBe` 3
     it "returns 9 if the list has length 9" $ do
       Data.RAList.length (fromList [1..9]) `shouldBe`  9
+
+  describe "Ralist.(!!)" $ do
+    it "!! 0"  $ do
+      (fromList [ 1 .. 9]) !! 0 `shouldBe` 1
+    it "!! 1"  $ do
+      (fromList [ 1 .. 9]) !! 1 `shouldBe` 2
+    it "!! 2"  $ do
+      (fromList [ 1 .. 9]) !! 2 `shouldBe` 3
+    it "!! 3"  $ do
+      (fromList [ 1 .. 9]) !! 3 `shouldBe` 4
+    it "!! 4"  $ do
+      (fromList [ 1 .. 9]) !! 4 `shouldBe` 5
+    it "!! 5"  $ do
+      (fromList [ 1 .. 9]) !! 5 `shouldBe` 6
+    it "!! 6"  $ do
+      (fromList [ 1 .. 9]) !! 6 `shouldBe` 7
+    it "!! 7"  $ do
+      (fromList [ 1 .. 9]) !! 7 `shouldBe` 8
+    it "!! 8"  $ do
+      (fromList [ 1 .. 9]) !! 8 `shouldBe` 9
+
 
   describe "RAList.lookupL" $ do
     describe "for a list of length 1" $ do
