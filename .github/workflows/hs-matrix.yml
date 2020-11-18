@@ -1,4 +1,4 @@
-on: [push]
+on: [push, pull_request]
 name: build
 jobs:
   build:
@@ -11,6 +11,7 @@ jobs:
         os: [ubuntu-latest] #, macOS-latest, windows-latest]
         exclude:
           # GHC 8.8+ only works with cabal v3+
+          # dummy example of exclusions
           - ghc: 8.8.3
             cabal: 2.4.1.0
 
@@ -25,7 +26,11 @@ jobs:
           - os: ubuntu-latest
             ghc: latest
             cabal: latest
-    name: Haskell GHC ${{ matrix.ghc }} and cabal ${{matrix.cabal}} on ${{matrix.os}}
+    name: GHC ${{ matrix.ghc }} and cabal ${{matrix.cabal}} on ${{matrix.os}}
+
+    env:
+      CONFIG: "--enable-tests --enable-benchmarks"
+      HSPKGNAME: "ralist"
     steps:
       - uses: actions/checkout@v2
       - name: Setup Haskell
@@ -33,4 +38,27 @@ jobs:
         with:
           ghc-version: ${{ matrix.ghc }}
           cabal-version: ${{ matrix.cabal }}
+      - run: cabal update
+      - run: cabal clean
+      - run: cabal freeze $CONFIG
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cabal/store
+          # dist-newstyle
+          # I commented out dist-newstyle because I dont feel like dealing with that sortah
+          # possibly buggy change detection stuff, builds are for building :)
+          key: ${{ runner.os }}-${{ matrix.ghc }}-${{ hashFiles('cabal.project.freeze') }}
+          # restore keys is a fall back when the freeze plan is different
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.ghc }}-
+      - run: cabal configure $CONFIG
+      - run: cabal build  --only-dependencies
+      - run: cabal build
       - run: cabal test
+      # - run: cabal bench
+      # - run: cabal check
+      - run: cabal sdist -o `pwd`
+      - run: cabal check ${{HSPKGNAME}}*.tar.gz
+      - run: cabal install ${{HSPKGNAME}}*.tar.gz
+

@@ -342,7 +342,7 @@ last :: RAList a -> a
 last xs@(RAList s _) = xs !! (s-1)
 
 half :: Word64 -> Word64
-half n = n `quot` 2
+half = \ n ->  n `quot` 2
 
 -- | Complexity /O(log n)/.
 (!!) :: RAList a -> Word64 -> a
@@ -350,14 +350,14 @@ half n = n `quot` 2
                     | n >= s = error "Data.RAList.!!: index too large"
                     | otherwise = ix n wts
   where
-        ix j (Cons w t wts') | j < w     = ixtree j (w `quot` 2) t
+        ix j (Cons w t wts') | j < w     = ixtree j (half w ) t
                              | otherwise = ix (j-w) wts'
         ix _ _ = error "Data.RAList.!!: impossible"
 
         ixtree 0 0 (Leaf x) = x
         ixtree 0 _ (Node x _l _r) = x
-        ixtree j w (Node _x l r) | j <= w    = ixtree (j-1)   (w `quot` 2) l
-                             | otherwise = ixtree (j-1-w) (w `quot` 2) r
+        ixtree j w (Node _x l r) | j <= w = ixtree (j-1)   (half w ) l
+                             | otherwise  = ixtree (j-1-w) (half w ) r
         ixtree _j _w _ = error "Data.RAList.!!: impossible"
 
 lookup :: forall a. Word64 -> Top a -> a
@@ -367,35 +367,34 @@ lookupM :: forall a. Word64 -> Top a -> Either String a
 lookupM jx zs = look zs jx
   where look Nil _ = Left "RandList.lookup bad subscript"
         look (Cons j t xs) i
-            | i < j     = lookTree j t i
+            | i < j     = lookTree j  i t
             | otherwise = look xs (i - j)
 
-        lookTree _ (Leaf x) i
+        lookTree _  i (Leaf x)
             | i == 0    = Right x
             | otherwise = nothing
-        lookTree j (Node x s t) i
-            | i > k  = lookTree k t (i - 1 - k)
-            | i /= 0 = lookTree k s (i - 1)
-            | otherwise = Right x
-          where k = half j
+        lookTree j i (Node x l r)
+            | i > (half j)  = lookTree (half j) (i - 1 - (half j)) r
+            | i /= 0        = lookTree (half j) (i - 1) l
+            | otherwise     = Right x
         nothing = Left "RandList.lookup: not found"
         --- this wont fly long term
 
 lookupWithDefault :: forall t. t -> Word64 -> Top t -> t
-lookupWithDefault d jx zs = look zs jx
-  where look Nil _ = d
-        look (Cons j t xs) i
-            | i < j     = lookTree j t i
-            | otherwise = look xs (i - j)
+lookupWithDefault d jx zs =  either (const d) id  $ lookupM  jx zs
+  --where look Nil _ = d
+  --      look (Cons j t xs) i
+  --          | i < j     = lookTree j t i
+  --          | otherwise = look xs (i - j)
 
-        lookTree _ (Leaf x) i
-            | i == 0    = x
-            | otherwise = d
-        lookTree j (Node x s t) i
-            | i > k   = lookTree k t (i - 1 - k)
-            | i /= 0  = lookTree k s (i - 1)
-            | otherwise = x
-          where k = half j
+  --      lookTree _ (Leaf x) i
+  --          | i == 0    = x
+  --          | otherwise = d
+  --      lookTree j (Node x s t) i
+  --          | i > k   = lookTree k t (i - 1 - k)
+  --          | i /= 0  = lookTree k s (i - 1)
+  --          | otherwise = x
+  --        where k = half j
 
 -- | Complexity /O(1)/.
 tail :: RAList a -> Maybe (RAList a)
