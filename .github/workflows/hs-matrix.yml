@@ -26,7 +26,7 @@ jobs:
           - os: ubuntu-latest
             ghc: latest
             cabal: latest
-    name: GHC ${{ matrix.ghc }} and cabal ${{matrix.cabal}} on ${{matrix.os}}
+    name: GHC${{ matrix.ghc }},cabal${{matrix.cabal}},${{matrix.os}}
 
     env:
       CONFIG: "--enable-tests --enable-benchmarks"
@@ -40,6 +40,7 @@ jobs:
           cabal-version: ${{ matrix.cabal }}
       - run: cabal update
       - run: cabal clean
+      - run: cabal configure $CONFIG
       - run: cabal freeze $CONFIG
       - uses: actions/cache@v2
         with:
@@ -52,11 +53,11 @@ jobs:
           # restore keys is a fall back when the freeze plan is different
           restore-keys: |
             ${{ runner.os }}-${{ matrix.ghc }}-
-      - run: cabal configure $CONFIG
+
       - run: cabal build  --only-dependencies
       - run: cabal build
       - run: cabal test
-      # - run: cabal bench
+      - run: cabal bench
       # - run: cabal check
       - run: cabal sdist -o `pwd`
       # not sure how to parametrize package name
