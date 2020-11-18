@@ -16,7 +16,8 @@
 --
 module Data.RAList
    (
-     RAList
+     RAList(..)
+     ,Top
 
    -- * Basic functions
    , empty
@@ -362,6 +363,7 @@ half = \ n ->  n `quot` 2
 
 lookup :: forall a. Word64 -> Top a -> a
 lookup i xs = either error id (lookupM i xs)
+
 
 lookupM :: forall a. Word64 -> Top a -> Either String a
 lookupM jx zs = look zs jx
