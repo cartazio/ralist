@@ -30,7 +30,7 @@ jobs:
 
     env:
       CONFIG: "--enable-tests --enable-benchmarks"
-      HSPKGNAME: "ralist"
+      # HSPKGNAME: "ralist"
     steps:
       - uses: actions/checkout@v2
       - name: Setup Haskell
@@ -59,6 +59,7 @@ jobs:
       # - run: cabal bench
       # - run: cabal check
       - run: cabal sdist -o `pwd`
-      - run: cabal check ${{HSPKGNAME}}*.tar.gz
-      - run: cabal install ${{HSPKGNAME}}*.tar.gz
+      # not sure how to parametrize package name
+      - run: cabal check ralist*.tar.gz
+      - run: cabal install ralist*.tar.gz
 
