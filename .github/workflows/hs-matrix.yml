@@ -64,6 +64,10 @@ jobs:
 
   build-windows:
     runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+
     strategy:
       fail-fast: false # windows fails bench marking so i need to enable this for now
       matrix:
@@ -90,7 +94,7 @@ jobs:
       - uses: actions/cache@v2
         with:
           path: |
-            ${{ steps.setup-haskell-cabal.outputs.cabal-store }}
+            c:\sr
             dist-newstyle
           key: ${{ runner.os }}-${{ matrix.ghc }}-${{ hashFiles('cabal.project.freeze') }}
           # restore keys is a fall back when the freeze plan is different
@@ -102,7 +106,7 @@ jobs:
       - run: cabal bench
         if: (matrix.os != 'windows-latest')
       # - run: cabal check
-      - run: cabal sdist -o $pwd  # windows path bs
+      - run: cabal sdist -o `pwd`  # windows path bs
       # not sure how to parametrize package name
       - run: cabal check
       - run: cabal v1-install ralist*.tar.gz
