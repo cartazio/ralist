@@ -65,6 +65,7 @@ jobs:
       - run: cabal build
       - run: cabal test
       - run: cabal bench
+        if: (matrix.os != 'windows-latest')
       # - run: cabal check
       - run: cabal sdist -o `pwd`
       # not sure how to parametrize package name
