@@ -50,10 +50,9 @@ jobs:
       - uses: actions/cache@v2
         with:
           path: |
-            ~/.cabal/store
-          # dist-newstyle
-          # I commented out dist-newstyle because I dont feel like dealing with that sortah
-          # possibly buggy change detection stuff, builds are for building :)
+            ${{ steps.setup-haskell-cabal.outputs.cabal-store }}
+            dist-newstyle
+          # we may want to *not* cache  dist-newstyle, but its here
           key: ${{ runner.os }}-${{ matrix.ghc }}-${{ hashFiles('cabal.project.freeze') }}
           # restore keys is a fall back when the freeze plan is different
           restore-keys: |
@@ -66,6 +65,6 @@ jobs:
       # - run: cabal check
       - run: cabal sdist -o `pwd`
       # not sure how to parametrize package name
-      - run: cabal check ralist*.tar.gz
-      - run: cabal install ralist*.tar.gz
+      - run: cabal check
+      - run: cabal v1-install ralist*.tar.gz
 
