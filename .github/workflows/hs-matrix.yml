@@ -1,5 +1,11 @@
 on: [push, pull_request]
 name: build
+env:
+      THISPACKAGE: ralist
+      CONFIG: --enable-tests --enable-benchmarks
+defaults:
+  run:
+    shell: bash
 jobs:
   build:
     runs-on: ${{ matrix.os }}
@@ -23,10 +29,7 @@ jobs:
             ghc: latest
             cabal: latest
     name: GHC${{ matrix.ghc }},cabal${{matrix.cabal}},${{matrix.os}}
-
-    env:
-      CONFIG: "--enable-tests --enable-benchmarks"
-      # HSPKGNAME: "ralist"
+    # double curly brace is a javascript splice or something??
     steps:
       - uses: actions/checkout@v2
       - name: Setup Haskell
@@ -46,12 +49,11 @@ jobs:
           path: |
             ~/.cabal/store
             dist-newstyle
-
           key: ${{ runner.os }}-${{ matrix.ghc }}-${{ hashFiles('cabal.project.freeze') }}
           # restore keys is a fall back when the freeze plan is different
           restore-keys: |
             ${{ runner.os }}-${{ matrix.ghc }}-
-
+        if:  matrix.os != 'windows-latest'
       - run: cabal build  --only-dependencies
       - run: cabal build
       - run: cabal test
@@ -59,13 +61,11 @@ jobs:
       # - run: cabal check
       - run: cabal sdist -o `pwd`
       - run: cabal check
-      - run: cabal v1-install ralist*.tar.gz
+      - run: cabal v1-install ${THISPACKAGE}*.tar.gz
 
   build-windows:
     runs-on: ${{ matrix.os }}
-    defaults:
-      run:
-        shell: bash
+
 
     strategy:
       fail-fast: false # windows fails bench marking so i need to enable this for now
@@ -76,9 +76,6 @@ jobs:
         cabal: ['3.2.0.0']
     name: GHC${{ matrix.ghc }},cabal${{matrix.cabal}},windows-latest
 
-    env:
-      CONFIG: "--enable-tests --enable-benchmarks"
-      # HSPKGNAME: "ralist"
     steps:
       - uses: actions/checkout@v2
       - name: Setup Haskell
@@ -99,6 +96,7 @@ jobs:
           # restore keys is a fall back when the freeze plan is different
           restore-keys: |
             ${{ runner.os }}-${{ matrix.ghc }}-
+        if:  matrix.os == 'windows-latest'
       - run: cabal build  --only-dependencies
       - run: cabal build
       - run: cabal test
@@ -108,4 +106,4 @@ jobs:
       - run: cabal sdist -o `pwd`  # windows path bs
       # not sure how to parametrize package name
       - run: cabal check
-      - run: cabal v1-install ralist*.tar.gz
+      - run: cabal v1-install ${THISPACKAGE}*.tar.gz
