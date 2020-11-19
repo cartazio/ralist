@@ -16,7 +16,6 @@ jobs:
         #     cabal: 2.4.1.0
 
         include:
-
           - os: macOS-latest
             ghc: latest
             cabal: latest
@@ -73,8 +72,8 @@ jobs:
       matrix:
       # for the matrix leg matching the os and version
         os: [windows-latest]
-        ghc: [latest]
-        cabal: [latest]
+        ghc: ['8.10.2']
+        cabal: ['3.2.0.0']
     name: GHC${{ matrix.ghc }},cabal${{matrix.cabal}},windows-latest
 
     env:
