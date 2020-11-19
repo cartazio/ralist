@@ -16,12 +16,6 @@ jobs:
         ghc:  ['7.10.3','8.0.2','8.2.2','8.4.4','8.6.5', '8.8.3','8.10.2','latest'] # ['7.0.4','7.2.2','7.4.2','7.6.3','7.8.4',
         cabal: ['3.2.0.0'] # ,'latest'
         os: [ubuntu-latest] #, macOS-latest, windows-latest]
-        # exclude:
-        #   # GHC 8.8+ only works with cabal v3+
-        #   # dummy example of exclusions
-        #   - ghc: 8.8.3
-        #     cabal: 2.4.1.0
-
         include:
           - os: macOS-latest
             ghc: latest
@@ -51,6 +45,7 @@ jobs:
       - run: cabal configure $CONFIG
       - run: cabal freeze $CONFIG
       - uses: actions/cache@v2
+        name: windows caching
         with:
           path: |
             c:\sr
@@ -60,8 +55,8 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-${{ matrix.ghc }}-
         if:  matrix.os == 'windows-latest'
-      # I do this twice to handle windows vs not windows
       - uses: actions/cache@v2
+        name: ubuntu-linux and osx caching
         with:
           path: |
             ~/.cabal/store
