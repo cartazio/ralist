@@ -24,9 +24,6 @@ tenMillion = fromList [0..10000000]
 main = defaultMain [
     bgroup "drop"
         [ bench "Thousand" $ whnf (Data.RAList.drop 100) thousand
-          ,bench "HundredThousand" $ whnf (Data.RAList.drop 100) hundredThousand
-          --bench "Million" $ whnf (Data.RAList.drop 100) million,
-          --bench "TenMillion" $ whnf (Data.RAList.drop 100) tenMillion,
 
           ,bench "Thousand-Drop1" $ whnf (Data.RAList.drop 1) thousand
           --bench "HundredThousand-Drop1" $ whnf (Data.RAList.drop 1) hundredThousand
