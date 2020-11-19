@@ -4,6 +4,7 @@ jobs:
   build:
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false # windows fails bench marking so i need to enable this for now
       matrix:
         ghc:  ['7.10.3','8.0.2','8.2.2','8.4.4','8.6.5', '8.8.3','8.10.2','latest'] # ['7.0.4','7.2.2','7.4.2','7.6.3','7.8.4',
         cabal: ['3.2.0.0'] # ,'latest'
@@ -35,7 +36,10 @@ jobs:
       - uses: actions/checkout@v2
       - name: Setup Haskell
         # uses: actions/setup-haskell@v1.1.4 # the .3 is a bug fix? as is .4
-        uses: actions/setup-haskell@v1 # had to bump to .3 then .4, i'm tired :)
+        # the v1 tag tracks the most recent release for the setup-haskell plugin,
+        # less ci bump exhaustion this way
+        uses: actions/setup-haskell@v1 # had to bump to .3 then .4, i'm tired :). I'd rather track close, but eh
+
         with:
           ghc-version: ${{ matrix.ghc }}
           cabal-version: ${{ matrix.cabal }}
