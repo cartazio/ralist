@@ -72,7 +72,7 @@ jobs:
       matrix:
       # for the matrix leg matching the os and version
         os: [windows-latest]
-        ghc: ['8.10.2']
+        ghc: [latest]
         cabal: ['3.2.0.0']
     name: GHC${{ matrix.ghc }},cabal${{matrix.cabal}},windows-latest
 
