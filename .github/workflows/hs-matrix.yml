@@ -8,19 +8,15 @@ jobs:
       matrix:
         ghc:  ['7.10.3','8.0.2','8.2.2','8.4.4','8.6.5', '8.8.3','8.10.2','latest'] # ['7.0.4','7.2.2','7.4.2','7.6.3','7.8.4',
         cabal: ['3.2.0.0'] # ,'latest'
-
         os: [ubuntu-latest] #, macOS-latest, windows-latest]
-        exclude:
-          # GHC 8.8+ only works with cabal v3+
-          # dummy example of exclusions
-          - ghc: 8.8.3
-            cabal: 2.4.1.0
+        # exclude:
+        #   # GHC 8.8+ only works with cabal v3+
+        #   # dummy example of exclusions
+        #   - ghc: 8.8.3
+        #     cabal: 2.4.1.0
 
         include:
-      # for the matrix leg matching the os and version
-          - os: windows-latest
-            ghc: latest
-            cabal: latest
+
           - os: macOS-latest
             ghc: latest
             cabal: latest
@@ -39,7 +35,51 @@ jobs:
         # the v1 tag tracks the most recent release for the setup-haskell plugin,
         # less ci bump exhaustion this way
         uses: actions/setup-haskell@v1 # had to bump to .3 then .4, i'm tired :). I'd rather track close, but eh
+        with:
+          ghc-version: ${{ matrix.ghc }}
+          cabal-version: ${{ matrix.cabal }}
+      - run: cabal update
+      - run: cabal clean
+      - run: cabal configure $CONFIG
+      - run: cabal freeze $CONFIG
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cabal/store
+            dist-newstyle
 
+          key: ${{ runner.os }}-${{ matrix.ghc }}-${{ hashFiles('cabal.project.freeze') }}
+          # restore keys is a fall back when the freeze plan is different
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.ghc }}-
+
+      - run: cabal build  --only-dependencies
+      - run: cabal build
+      - run: cabal test
+      - run: cabal bench
+      # - run: cabal check
+      - run: cabal sdist -o `pwd`
+      - run: cabal check
+      - run: cabal v1-install ralist*.tar.gz
+
+  build-windows:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false # windows fails bench marking so i need to enable this for now
+      matrix:
+      # for the matrix leg matching the os and version
+        os: [windows-latest]
+        ghc: [latest]
+        cabal: [latest]
+    name: GHC${{ matrix.ghc }},cabal${{matrix.cabal}},windows-latest
+
+    env:
+      CONFIG: "--enable-tests --enable-benchmarks"
+      # HSPKGNAME: "ralist"
+    steps:
+      - uses: actions/checkout@v2
+      - name: Setup Haskell
+        uses: actions/setup-haskell@v1 # had to bump to .3 then .4, i'm tired :). I'd rather track close, but eh
         with:
           ghc-version: ${{ matrix.ghc }}
           cabal-version: ${{ matrix.cabal }}
@@ -52,40 +92,17 @@ jobs:
           path: |
             ${{ steps.setup-haskell-cabal.outputs.cabal-store }}
             dist-newstyle
-          # we may want to *not* cache  dist-newstyle, but its here
-          # # ~/.cabal/store # maybe
-          # we use the  ...outputs.cabal-store instead of its unixy path
-          #so that the same caching works on windows
           key: ${{ runner.os }}-${{ matrix.ghc }}-${{ hashFiles('cabal.project.freeze') }}
           # restore keys is a fall back when the freeze plan is different
           restore-keys: |
             ${{ runner.os }}-${{ matrix.ghc }}-
-          if: (matrix.os == 'windows-latest')
-      - uses: actions/cache@v2
-        with:
-          path: |
-            ~/.cabal/store
-            dist-newstyle
-          # we may want to *not* cache  dist-newstyle, but its here
-          # # ~/.cabal/store # maybe
-          # we use the  ...outputs.cabal-store instead of its unixy path
-          #so that the same caching works on windows
-          key: ${{ runner.os }}-${{ matrix.ghc }}-${{ hashFiles('cabal.project.freeze') }}
-          # restore keys is a fall back when the freeze plan is different
-          restore-keys: |
-            ${{ runner.os }}-${{ matrix.ghc }}-
-          if: (matrix.os != 'windows-latest')
       - run: cabal build  --only-dependencies
       - run: cabal build
       - run: cabal test
       - run: cabal bench
         if: (matrix.os != 'windows-latest')
       # - run: cabal check
-      - run: cabal sdist -o `pwd`
-        if: (matrix.os != 'windows-latest')
       - run: cabal sdist -o $pwd  # windows path bs
-        if: (matrix.os == 'windows-latest')
       # not sure how to parametrize package name
       - run: cabal check
       - run: cabal v1-install ralist*.tar.gz
-
