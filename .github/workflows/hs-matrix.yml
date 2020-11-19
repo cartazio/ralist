@@ -53,6 +53,9 @@ jobs:
             ${{ steps.setup-haskell-cabal.outputs.cabal-store }}
             dist-newstyle
           # we may want to *not* cache  dist-newstyle, but its here
+          # # ~/.cabal/store
+          # we use the  ...outputs.cabal-store instead of its unixy path
+          #so that the same caching works on windows
           key: ${{ runner.os }}-${{ matrix.ghc }}-${{ hashFiles('cabal.project.freeze') }}
           # restore keys is a fall back when the freeze plan is different
           restore-keys: |
