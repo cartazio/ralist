@@ -28,7 +28,7 @@ source-repository head
 
 
 Library
-  Build-Depends: base >= 3 && < 6
+  Build-Depends: base >= 4.8 && < 6
   Exposed-modules:      Data.RAList, Data.RAList.Flip
   ghc-options: -Wall -O2
   hs-source-dirs:     src
