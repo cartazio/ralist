@@ -14,9 +14,9 @@ jobs:
   build:
     runs-on: ${{ matrix.os }}
     strategy:
-      fail-fast: false # windows fails bench marking so i need to enable this for now
+      fail-fast: false
       matrix:
-        ghc:  ['7.10.3','8.0.2','8.2.2','8.4.4','8.6.5', '8.8.3','8.10.2','latest'] # ['7.0.4','7.2.2','7.4.2','7.6.3','7.8.4',
+        ghc:  ['7.0.4','7.2.2','7.4.2','7.6.3','7.8.4','7.10.3','8.0.2','8.2.2','8.4.4','8.6.5', '8.8.3','8.10.2','latest'] # ['7.0.4','7.2.2','7.4.2','7.6.3','7.8.4',
         cabal: ['3.2.0.0'] # ,'latest'
         os: [ubuntu-latest] #, macOS-latest, windows-latest]
         include:

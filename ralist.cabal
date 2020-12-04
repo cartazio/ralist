@@ -39,7 +39,8 @@ Library
         ghc-options: -Wcompat -Wnoncanonical-monad-instances -Wnoncanonical-monadfail-instances
   else
 
-      build-depends: fail == 4.9.*, semigroups == 0.18.*
+      build-depends: semigroups == 0.18.*
+                    , fail == 4.9.*,
        -- provide/emulate `Control.Monad.Fail` and `Data.Semigroups` API for pre-GHC8
 
 
