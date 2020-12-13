@@ -3,6 +3,8 @@
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE ExplicitForAll #-}
 {-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE PatternSynonyms,ViewPatterns #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE DeriveFoldable , DeriveTraversable#-}
 -- |
 -- A random-access list implementation based on Chris Okasaki's approach
@@ -16,8 +18,7 @@
 --
 module Data.RAList
    (
-     RAList(..)
-     ,Top
+     RAList(Nil,Cons)
 
    -- * Basic functions
    , empty
@@ -40,6 +41,7 @@ module Data.RAList
    ,lookupWithDefault
    ,lookupM
    ,lookup
+   ,lookupCC
 
    --- * KV indexing
    --- | This function treats a RAList as an association list
@@ -232,9 +234,7 @@ import Prelude hiding(
     zip, zipWith, unzip
     )
 import qualified Data.List as List
-#if !MIN_VERSION_base(4,9,0) == 1
-import Data.Monoid(Monoid,mappend,mempty)
-#endif
+
 
 #if MIN_VERSION_base(4,11,0)
 #else
@@ -243,6 +243,9 @@ import Data.Semigroup(Semigroup,(<>))
 import Data.Data(Data,Typeable)
 --import Data.Functor.Identity(runIdentity)
 import Data.Word
+
+import Data.Foldable hiding (concat, concatMap)
+import qualified Control.Monad.Fail as MF
 
 infixl 9  !!
 infixr 5  `cons`, ++
@@ -254,47 +257,59 @@ infixr 5  `cons`, ++
 -- [ [], [1], [1,1], [3], [1,3], [1,1,3], [3,3], [7], [1,7], [1,1,7],
 --   [3,7], [1,3,7], [1,1,3,7], [3,3,7], [7,7], [15], ...
 -- (I.e., skew binary numbers.)
-data RAList a = RAList {-# UNPACK #-} !Word64 !(Top a)
-    deriving (Eq,Data,Typeable,Foldable,Traversable)
+--data RAList a = RAList {-# UNPACK #-} !Word64 !(Top a)
+--    deriving (Eq,Data,Typeable,Foldable,Traversable)
 
 instance (Show a) => Show (RAList a) where
     showsPrec p xs = showParen (p >= 10) $ showString "fromList " . showsPrec 10 (toList xs)
 
-instance (Read a) => Read (RAList a) where
-    readsPrec p = readParen (p > 10) $ \ r -> [(fromList xs, t) | ("fromList", s) <- lex r, (xs, t) <- reads s]
+--instance (Read a) => Read (RAList a) where
+--    readsPrec p = readParen (p > 10) $ \ r -> [(fromList xs, t) | ("fromList", s) <- lex r, (xs, t) <- reads s]
 
-instance (Ord a) => Ord (RAList a) where
-    xs <  ys        = toList xs <  toList ys
-    xs <= ys        = toList xs <= toList ys
-    xs >  ys        = toList xs >  toList ys
-    xs >= ys        = toList xs >= toList ys
-    xs `compare` ys = toList xs `compare` toList ys
+--instance (Ord a) => Ord (RAList a) where
+--    xs <  ys        = toList xs <  toList ys
+--    xs <= ys        = toList xs <= toList ys
+--    xs >  ys        = toList xs >  toList ys
+--    xs >= ys        = toList xs >= toList ys
+--    xs `compare` ys = toList xs `compare` toList ys
 
 instance Monoid (RAList a) where
-    mempty  = empty
+    mempty  = Nil
 
-#if MIN_VERSION_base(4,11,0)
-#elif MIN_VERSION_base(4,9,0)
+ #if MIN_VERSION_base(4,11,0)
+
+ #elif MIN_VERSION_base(4,9,0)
     mappend = (<>)
-#endif
+ #endif
 
 instance Semigroup (RAList a) where
     (<>) = (++)
 
-instance Functor RAList where
-    fmap f (RAList s wts) = RAList s (fmap f wts)
+--instance Functor RAList where
+--    fmap f (RAList s skewlist) = RAList s (fmap f skewlist)
 
-instance Applicative RAList where
-    pure = \x -> RAList 1 (Cons 1 (Leaf x) Nil)
-    (<*>) = zipWith ($)
+--instance Applicative RAList where
+--    pure = \x -> Cons x Nil
+--    (<*>) = zipWith ($)
 
-instance Monad RAList where
-    return = pure
-    (>>=) = flip concatMap
+--instance Monad RAList where
+--    return = pure
+--    (>>=) = flip concatMap
 
 -- Special list type for (Word64, Tree a), i.e., Top a ~= [(Word64, Tree a)]
-data Top a = Nil | Cons {-# UNPACK #-} !Word64 !(Tree a) (Top a)
-    deriving (Eq,Data,Typeable,Functor,Foldable,Traversable)
+data RAList a = RNil
+                | RCons {-# UNPACK #-}  !Word64 -- total number of elements, aka sum of subtrees
+                        {-# UNPACK #-}  !Word64 --  size of this subtree
+                                        (Tree a)
+                                        (RAList a)
+    deriving (Eq,Data,Typeable,Functor,Traversable)
+
+instance Foldable RAList  where
+  null Nil  =  True
+  null _ = False
+
+  length RNil = 0
+  length (RCons tot _tres _tree _rest) = fromIntegral tot -- :)
 
 --instance Functor Top where
 --    fmap _ Nil = Nil
@@ -304,35 +319,58 @@ data Top a = Nil | Cons {-# UNPACK #-} !Word64 !(Tree a) (Top a)
 -- be preserved for the implementation to work.
 data Tree a
      = Leaf a
-     | Node a !(Tree a) !(Tree a)
-     deriving (Eq,Data,Typeable,Functor,Foldable,Traversable)
+     | Node a (Tree a) (Tree a)
+     deriving (Eq,Data,Typeable,Functor,Traversable)
+
+instance Foldable Tree  where
+  -- Tree is a PREORDER sequence layout
+  foldMap f (Leaf a) = f a
+  foldMap f (Node a l r) =  f a <> foldMap f l <>  foldMap f r
 
 --instance Functor Tree where
 --     fmap f (Leaf x)     = Leaf (f x)
 --     fmap f (Node x l r) = Node (f x) (fmap f l) (fmap f r)
 
 
+pattern Nil :: forall a. RAList a
+pattern Nil = RNil
+
+pattern Cons :: forall a. a -> RAList a -> RAList a
+pattern Cons x xs <-( uncons -> Just(x,xs) )
+ where Cons x xs = cons x xs
+{-# COMPLETE Nil,Cons#-}
 
 empty :: RAList a
-empty = RAList 0 Nil
+empty = Nil
 
 -- | Complexity /O(1)/.
 cons :: a -> RAList a -> RAList a
-cons x (RAList s wts) = RAList (s+1) $
-    case wts of
-    Cons s1 t1 (Cons s2 t2 wts') | s1 == s2 -> Cons (1 + s1 + s2) (Node x t1 t2) wts'
-    _ -> Cons 1 (Leaf x) wts
+cons x (RCons tots1 tsz1 t1  (RCons _tots2 tsz2 t2 rest))
+        | tsz2 == tsz1 = RCons (tots1 + 1) (tsz1 * 2 + 1 ) (Node x t1 t2 ) rest
+cons x rlist  = RCons 1 1 (Leaf x) rlist
+
+    --case rest of
+    --  RCons tot2 treesize2 more
+    --      | treesize1 == treesize2 -> RCons (tot1+1) (2* treesize1 +1) (Node x )
+    --  _ -> RCons (totsize1 + 1) 1 (Leaf x) rlist
+      -- fall through is for RNill and for  RCons when first two trees are different sizes
+
+--cons x (RAList s wts) = RAList (s+1) $
+--    case wts of
+--    RCons s1 t1 (RCons s2 t2 wts') | s1 == s2 -> RCons (1 + s1 + s2) (Node x t1 t2) wts'
+--    _ -> RCons 1 (Leaf x) wts
 
 (++) :: RAList a -> RAList a -> RAList a
-xs ++ ys | null ys   = xs                   -- small optimization to avoid consing to empty
-         | otherwise = foldr cons ys xs
+xs  ++ Nil = xs
+Nil ++ ys = ys
+xs  ++ ys = foldr cons ys xs
 
 
 uncons :: RAList a -> Maybe (a, RAList a)
-uncons (RAList _ Nil) =  Nothing
-uncons (RAList s (Cons _ (Leaf h)     wts)) =  Just (h,RAList (s-1) wts)
-uncons (RAList s (Cons w (Node x l r) wts)) = Just (x, RAList (s-1) (Cons w2 l (Cons w2 r wts)))
-  where w2 = w `quot` 2
+uncons (RNil) =  Nothing
+uncons (RCons _ _  (Leaf h)     wts) =  Just (h,wts)
+uncons (RCons tot w (Node x l r) wts) = Just (x, (RCons (tot - 1) w2 l (RCons (tot -1 - w2 ) w2 r wts)))
+      where w2 = w `quot` 2
 
 -- | Complexity /O(1)/.
 head :: RAList a -> Maybe a
@@ -340,63 +378,54 @@ head = fmap fst  . uncons
 
 -- | Complexity /O(log n)/.
 last :: RAList a -> a
-last xs@(RAList s _) = xs !! (s-1)
+last xs= xs !! (fromIntegral $length xs - 1)
 
 half :: Word64 -> Word64
 half = \ n ->  n `quot` 2
 
 -- | Complexity /O(log n)/.
 (!!) :: RAList a -> Word64 -> a
-(RAList s wts) !! n | n <  0 = error "Data.RAList.!!: negative index"
-                    | n >= s = error "Data.RAList.!!: index too large"
-                    | otherwise = ix n wts
-  where
-        ix j (Cons w t wts') | j < w     = ixtree j (half w ) t
-                             | otherwise = ix (j-w) wts'
-        ix _ _ = error "Data.RAList.!!: impossible"
-
-        ixtree 0 0 (Leaf x) = x
-        ixtree 0 _ (Node x _l _r) = x
-        ixtree j w (Node _x l r) | j <= w = ixtree (j-1)   (half w ) l
-                             | otherwise  = ixtree (j-1-w) (half w ) r
-        ixtree _j _w _ = error "Data.RAList.!!: impossible"
-
-lookup :: forall a. Word64 -> Top a -> a
-lookup i xs = either error id (lookupM i xs)
+r !! n | n <  0 = error "Data.RAList.!!: negative index"
+                    | n >=( fromIntegral $ length r)  = error "Data.RAList.!!: index too large"
+                    | otherwise = lookupCC  r n  id error
 
 
-lookupM :: forall a. Word64 -> Top a -> Either String a
-lookupM jx zs = look zs jx
-  where look Nil _ = Left "RandList.lookup bad subscript"
-        look (Cons j t xs) i
-            | i < j     = lookTree j  i t
-            | otherwise = look xs (i - j)
+lookupCC :: forall a r.  RAList a ->  Word64 -> (a -> r) -> (String -> r) -> r
+lookupCC  =  \  ralist  index  retval retfail ->
+    let
+                look RNil _ = retfail "RAList.lookup bad subscript, something is corrupted"
+                look (RCons _tots tsz t xs) ix
+                    | ix < tsz     = lookTree tsz  ix t
+                    | otherwise = look xs (ix - tsz)
 
-        lookTree _  i (Leaf x)
-            | i == 0    = Right x
-            | otherwise = nothing
-        lookTree j i (Node x l r)
-            | i > (half j)  = lookTree (half j) (i - 1 - (half j)) r
-            | i /= 0        = lookTree (half j) (i - 1) l
-            | otherwise     = Right x
-        nothing = Left "RandList.lookup: not found"
-        --- this wont fly long term
+                lookTree _  ix (Leaf x)
+                    | ix == 0    = retval x
+                    | otherwise = retfail "RAList.lookup: not found. somehow we reached a leaf but our index doesnt match, this is bad"
+                lookTree jsz ix (Node x l r)
+                    | ix > (half jsz)  = lookTree (half jsz) (ix - 1 - (half jsz)) r
+                    | ix /= 0        = lookTree (half jsz) (ix - 1) l -- ix between zero and floor of size/2
+                    | otherwise     = retval x  -- when ix is zero
+      in
+        if  index >= (fromIntegral $ length ralist)
+           then  retfail $   "provide index larger than Ralist max valid coord " <> (show index) <> " " <> (show (length ralist))
+           else look ralist index
 
-lookupWithDefault :: forall t. t -> Word64 -> Top t -> t
-lookupWithDefault d jx zs =  either (const d) id  $ lookupM  jx zs
-  --where look Nil _ = d
-  --      look (Cons j t xs) i
-  --          | i < j     = lookTree j t i
-  --          | otherwise = look xs (i - j)
 
-  --      lookTree _ (Leaf x) i
-  --          | i == 0    = x
-  --          | otherwise = d
-  --      lookTree j (Node x s t) i
-  --          | i > k   = lookTree k t (i - 1 - k)
-  --          | i /= 0  = lookTree k s (i - 1)
-  --          | otherwise = x
-  --        where k = half j
+-- todo before release: rewrite in terms of lookupCC
+lookup :: forall a. RAList a ->  Word64 -> a
+lookup  = \ xs i -> maybe (error  "woops") id (lookupM xs i)
+
+
+
+
+{-# SPECIALIZE lookupM :: forall a . RAList a ->  Word64 -> Maybe a  #-}
+{-# SPECIALIZE lookupM :: forall a . RAList a ->  Word64 ->  IO a  #-}
+lookupM :: forall a m. MF.MonadFail m => RAList a ->   Word64 -> m  a
+lookupM = \ ix lst  -> lookupCC ix lst return fail
+
+lookupWithDefault :: forall t. t -> Word64 ->  RAList t ->   t
+lookupWithDefault = \  d tree ix  -> lookupCC  ix tree id (const d)
+
 
 -- | Complexity /O(1)/.
 tail :: RAList a -> Maybe (RAList a)
@@ -405,12 +434,11 @@ tail = fmap snd . uncons
 init :: RAList a -> RAList a
 init = fromList . Prelude.init . toList
 
-null :: RAList a -> Bool
-null (RAList s _) = s == 0
 
--- | Complexity /O(1)/.
-length :: RAList a -> Word64
-length (RAList s _) = s
+-- -- | Complexity /O(1)/.
+--length :: RAList a -> Word64
+--length (RCons s  _treesize _tree  _rest) = s
+--length RNil = 0
 
 map :: (a->b) -> RAList a -> RAList b
 map = fmap
@@ -420,60 +448,60 @@ map = fmap
 reverse :: RAList a -> RAList a
 reverse = fromList . Prelude.reverse . toList
 
--- XXX All the folds could be done more effiently.
-foldl :: (a -> b -> a) -> a -> RAList b -> a
-foldl f z xs = Prelude.foldl f z (toList xs)
+---- XXX All the folds could be done more efficiently.
+--foldl :: (a -> b -> a) -> a -> RAList b -> a
+--foldl f z xs = Prelude.foldl f z (toList xs)
 
-foldl' :: (a -> b -> a) -> a -> RAList b -> a
-foldl' f z xs = List.foldl' f z (toList xs)
+--foldl' :: (a -> b -> a) -> a -> RAList b -> a
+--foldl' f z xs = List.foldl' f z (toList xs)
 
-foldl1 :: (a -> a -> a) -> RAList a -> a
-foldl1 f xs | null xs = errorEmptyList "foldl1"
-            | otherwise = Prelude.foldl1 f (toList xs)
+--foldl1 :: (a -> a -> a) -> RAList a -> a
+--foldl1 f xs | null xs = errorEmptyList "foldl1"
+--            | otherwise = Prelude.foldl1 f (toList xs)
 
 foldl1' :: (a -> a -> a) -> RAList a -> a
 foldl1' f xs | null xs = errorEmptyList "foldl1'"
              | otherwise = List.foldl1' f (toList xs)
 
--- XXX This could be deforested.
-foldr :: (a -> b -> b) -> b -> RAList a -> b
-foldr f z xs = Prelude.foldr f z (toList xs)
+---- XXX This could be deforested.
+--foldr :: (a -> b -> b) -> b -> RAList a -> b
+--foldr f z xs = Prelude.foldr f z (toList xs)
 
-foldr1 :: (a -> a -> a) -> RAList a -> a
-foldr1 f xs | null xs = errorEmptyList "foldr1"
-            | otherwise = Prelude.foldr1 f (toList xs)
+--foldr1 :: (a -> a -> a) -> RAList a -> a
+--foldr1 f xs | null xs = errorEmptyList "foldr1"
+--            | otherwise = Prelude.foldr1 f (toList xs)
 
 concat :: RAList (RAList a) -> RAList a
-concat = foldr (++) empty
+concat = foldr (<>) empty
 
 concatMap :: (a -> RAList b) -> RAList a -> RAList b
-concatMap f = concat . map f
+concatMap f = concat . fmap f
 
-and :: RAList Bool -> Bool
-and = foldr (&&) True
+--and :: RAList Bool -> Bool
+--and = foldr (&&) True
 
-or :: RAList Bool -> Bool
-or = foldr (||) False
+--or :: RAList Bool -> Bool
+--or = foldr (||) False
 
-any :: (a -> Bool) -> RAList a -> Bool
-any p = or . map p
+--any :: (a -> Bool) -> RAList a -> Bool
+--any p = or . map p
 
-all :: (a -> Bool) -> RAList a -> Bool
-all p = and . map p
+--all :: (a -> Bool) -> RAList a -> Bool
+--all p = and . map p
 
-sum :: (Num a) => RAList a -> a
-sum = foldl (+) 0
+--sum :: (Num a) => RAList a -> a
+--sum = foldl (+) 0
 
-product :: (Num a) => RAList a -> a
-product = foldl (*) 1
+--product :: (Num a) => RAList a -> a
+--product = foldl (*) 1
 
-maximum :: (Ord a) => RAList a -> a
-maximum xs | null xs   = errorEmptyList "maximum"
-           | otherwise = foldl1 max xs
+--maximum :: (Ord a) => RAList a -> a
+--maximum xs | null xs   = errorEmptyList "maximum"
+--           | otherwise = foldl1 max xs
 
-minimum :: (Ord a) => RAList a -> a
-minimum xs | null xs   = errorEmptyList "minimum"
-           | otherwise = foldl1 min xs
+--minimum :: (Ord a) => RAList a -> a
+--minimum xs | null xs   = errorEmptyList "minimum"
+--           | otherwise = foldl1 min xs
 
 replicate :: Word64 -> a -> RAList a
 replicate n v = fromList $ Prelude.replicate (fromIntegral n)  v
@@ -487,27 +515,29 @@ take n ls | n < fromIntegral (maxBound :: Int) = fromList $  Prelude.take (fromI
 -- complexity should be /O(min(log i, log n))/.
 drop :: Word64 -> RAList a -> RAList a
 drop n xs | n <= 0 = xs
-drop n _xs@(RAList s _) | n >= s = empty
-drop n (RAList s wts) = RAList (s-n) (loop n wts)
+drop n  rlist  | n >=( fromIntegral $ length rlist) = Nil
+drop n rlist  = (loop n rlist)
   where loop 0 xs = xs
-        loop m (Cons w _ xs) | w <= m = loop (m-w) xs -- drops full trees
-        loop m (Cons w tre xs) = splitTree m w tre xs -- splits tree
+        loop m (RCons _tot treesize _ xs) | treesize <= m = loop (m-treesize) xs -- drops full trees
+        loop m (RCons _tot treesize  tre xs) = splitTree m treesize tre xs -- splits tree
         loop _ _ = error "Data.RAList.drop: impossible"
 
 -- helper function for drop
 -- drops the first n elements of the tree and adds them to the front
-splitTree :: Word64 -> Word64 -> Tree a -> Top a -> Top a
+splitTree :: Word64 -> Word64 -> Tree a -> RAList a -> RAList a
 splitTree n treeSize tree@(Node _ l r) xs =
-    case (compare n  1, n <= halfTreeSize) of
-      (LT {- n==0 -}, _ )  -> Cons treeSize tree xs
-      (EQ {- n==1 -}, _ ) -> Cons halfTreeSize l (Cons halfTreeSize r xs)
-      (_, True ) -> splitTree (n-1) halfTreeSize l (Cons halfTreeSize r xs)
+    case (compare n  1, n <= half treeSize) of
+      (LT {- n==0 -}, _ )  -> RCons (suffixSize + treeSize)  treeSize tree xs
+      (EQ {- n==1 -}, _ ) -> RCons (suffixSize + 2* halfTreeSize) halfTreeSize l
+                                (RCons (suffixSize + halfTreeSize) halfTreeSize r xs)
+      (_, True ) -> splitTree (n-1) halfTreeSize l (RCons (suffixSize + halfTreeSize) halfTreeSize r xs)
       (_, False) -> splitTree (n-halfTreeSize-1) halfTreeSize r xs
-  where halfTreeSize = treeSize `quot` 2
+    where suffixSize = fromIntegral $  length xs
+          halfTreeSize = half treeSize
 splitTree n treeSize nd@(Leaf _) xs =
   case compare n 1 of
     EQ {-1-} -> xs
-    LT {-0-}-> Cons treeSize nd xs
+    LT {-0-}-> RCons ((fromIntegral $  length xs) + treeSize) treeSize nd xs
     GT {- > 1-} -> error "drop invariant violated, must be smaller than current tree"
 
 
@@ -516,24 +546,24 @@ splitTree n treeSize nd@(Leaf _) xs =
 -- Old version of drop
 -- worst case complexity /O(n)/
 simpleDrop :: Word64 -> RAList a -> RAList a
-simpleDrop n xs | n <= 0 = xs
-simpleDrop n _xs@(RAList s _) | n >= s = empty
-simpleDrop n (RAList s wts) = RAList (s-n) (loop n wts)
-    where loop 0 xs = xs
-          loop n1 (Cons w _ xs) | w <= n1 = loop (n1-w) xs
-          loop n2 (Cons w (Node _ l r) xs) = loop (n2-1) (Cons w2 l (Cons w2 r xs))
-            where w2 = w `quot` 2
+simpleDrop n xs  | n <= 0 = xs
+                 | n >= (fromIntegral $ length xs) = Nil
+                 | otherwise =  (loop n xs)
+    where loop 0 rs = rs
+          loop m (RCons _tot w _ rs) | w <= m = loop (m-w) rs
+          loop m (RCons _tot w (Node _ l r) rs) = loop (m-1) (RCons ((fromIntegral $ length xs) + 2 * w2) w2 l (RCons ((fromIntegral $length xs) + w2) w2 r rs))
+            where w2 = half w
           loop _ _ = error "Data.RAList.drop: impossible"
 
 
 splitAt :: Word64 -> RAList a -> (RAList a, RAList a)
 splitAt n xs = (take n xs, drop n xs)
 
-elem :: (Eq a) => a -> RAList a -> Bool
-elem x = any (== x)
+--elem :: (Eq a) => a -> RAList a -> Bool
+--elem x = any (== x)
 
-notElem :: (Eq a) => a -> RAList a -> Bool
-notElem x = not . elem x -- aka all (/=)
+--notElem :: (Eq a) => a -> RAList a -> Bool
+--notElem x = not . elem x -- aka all (/=)
 
 -- naive list based lookup
 lookupL :: (Eq a) => a -> RAList (a, b) -> Maybe b
@@ -559,15 +589,20 @@ partition p xs = (filter p xs, filter (not . p) xs)
 zip :: RAList a -> RAList b -> RAList (a, b)
 zip = zipWith (,)
 
-zipWith :: (a->b->c) -> RAList a -> RAList b -> RAList c
-zipWith f xs1@(RAList s1 wts1) xs2@(RAList s2 wts2)
-    | s1 == s2 = RAList s1 (zipTop wts1 wts2)
-    | otherwise = fromList $ Prelude.zipWith f (toList xs1) (toList xs2)
+zipWith :: forall a b c .  (a->b->c) -> RAList a -> RAList b -> RAList c
+zipWith f xs1 xs2 = case compare (length xs1) (length xs2) of
+                      EQ ->  zipTop xs1 xs2
+                      LT -> error "xs1 is smaller than xs2"
+                      GT -> error "x2 is smaller than xs1"
+
+    --      | s1 == s2 = RAList s1 (zipTop wts1 wts2)
+    --    | otherwise = fromList $ Prelude.zipWith f (toList xs1) (toList xs2)
   where zipTree (Leaf x1) (Leaf x2) = Leaf (f x1 x2)
         zipTree (Node x1 l1 r1) (Node x2 l2 r2) = Node (f x1 x2) (zipTree l1 l2) (zipTree r1 r2)
         zipTree _ _ = error "Data.RAList.zipWith: impossible"
-        zipTop Nil Nil = Nil
-        zipTop (Cons w t1 xss1) (Cons _ t2 xss2) = Cons w (zipTree t1 t2) (zipTop xss1 xss2)
+        zipTop :: RAList a -> RAList b -> RAList c
+        zipTop RNil RNil = RNil
+        zipTop (RCons tot1 w t1 xss1) (RCons _tot2 _ t2 xss2) = RCons tot1 w (zipTree t1 t2) (zipTop xss1 xss2)
         zipTop _ _ = error "Data.RAList.zipWith: impossible"
 
 unzip :: RAList (a, b) -> (RAList a, RAList b)
@@ -580,12 +615,13 @@ update i x = adjust (const x) i
 
 -- | Apply a function to the value at the given index.
 -- Complexity /O(log n)/.
-adjust :: (a->a) -> Word64 -> RAList a -> RAList a
-adjust f n (RAList s wts) | n <  0 = error "Data.RAList.adjust: negative index"
-                          | n >= s = error "Data.RAList.adjust: index too large"
-                          | otherwise = RAList s (adj n wts)
-  where adj j (Cons w t wts') | j < w     = Cons w (adjt j (w `quot` 2) t) wts'
-                              | otherwise = Cons w t (adj (j-w) wts')
+adjust :: forall a . (a->a) -> Word64 -> RAList a -> RAList a
+adjust f n s | n <  0 = error "Data.RAList.adjust: negative index"
+                          | n >= (fromIntegral $ length s) = error "Data.RAList.adjust: index too large"
+                          | otherwise = (adj n s )
+  where adj  :: Word64 -> RAList a -> RAList a
+        adj j (RCons tot  w t wts') | j < w     = RCons tot w (adjt j (w `quot` 2) t) wts'
+                              | otherwise = RCons tot w t (adj (j-w) wts')
         adj j _ = error ("Data.RAList.adjust: impossible Nil element: " <> show j)
         adjt 0 0 (Leaf x) = Leaf (f x)
         adjt 0 _ (Node x l r) = Node (f x) l r
@@ -595,17 +631,17 @@ adjust f n (RAList s wts) | n <  0 = error "Data.RAList.adjust: negative index"
 
 -- XXX Make this a good producer
 -- | Complexity /O(n)/.
-toList :: RAList a -> [a]
-toList (RAList _ wts) = tops wts []
-  where flat (Leaf x)     a = x : a
-        flat (Node x l r) a = x : flat l (flat r a)
-        tops Nil r = r
-        tops (Cons _ t xs) r = flat t (tops xs r)
+--toList :: RAList a -> [a]
+--toList ra = tops ra []
+--  where flat (Leaf x)     a = x : a
+--        flat (Node x l r) a = x : flat l (flat r a)
+--        tops RNil r = r
+--        tops (RCons _tot _ t xs) r = flat t (tops xs r)
 
 -- XXX Use number system properties to make this more efficient.
 -- | Complexity /O(n)/.
 fromList :: [a] -> RAList a
-fromList = Prelude.foldr cons empty
+fromList = Prelude.foldr Cons Nil
 
 errorEmptyList :: String -> a
 errorEmptyList fun =

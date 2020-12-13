@@ -3,7 +3,7 @@ module Data.RAList.Flip(
   module RA
   ,lookup
   , lookupM
-  , lookupWithDefault, (!!)) where
+  , lookupWithDefault, (!!), lookupCC) where
 
 
 
@@ -22,21 +22,23 @@ import Data.RAList  as RA hiding (
     (!!)
    ,lookupWithDefault
    ,lookupM
-   ,lookup)
+   ,lookup
+   , lookupCC )
 import  qualified Data.RAList as QRA
-
+import qualified Control.Monad.Fail as MF
 
 (!!) :: RAList a -> Word64 -> a
 rls  !! n |  n <  0 = error "Data.RAList.Flip.!!: negative index"
-                        | n >= length rls  = error "Data.RAList.Flip.!!: index too large"
-                        | otherwise =  rls QRA.!! (length rls  - n )
+                        | n >= (fromIntegral $   length rls)  = error "Data.RAList.Flip.!!: index too large"
+                        | otherwise =  rls QRA.!! ((fromIntegral $length rls)  - n )
 lookupWithDefault :: forall t. t -> Word64 -> RAList t -> t
-lookupWithDefault = \ def ix tree@(RAList _wt top) -> QRA.lookupWithDefault def (length tree - ix ) top
+lookupWithDefault = \ def ix tree -> QRA.lookupWithDefault def ((fromIntegral $ length tree) - ix ) tree
 
-lookupM :: forall a. Word64 -> RAList a -> Either String a
-lookupM = \ ix tree@(RAList _wt top) ->  QRA.lookupM (QRA.length tree  - ix) top
+lookupM :: forall a m . MF.MonadFail m =>  Word64 -> RAList a ->  m a
+lookupM = \ ix tree ->  QRA.lookupM  tree ((fromIntegral $ QRA.length tree)  - ix)
 
 lookup :: forall a. Word64 -> RAList a ->a
-lookup =  \ ix tree@(RAList _wt top) -> QRA.lookup (QRA.length tree - ix ) top
+lookup =  \ ix tree -> QRA.lookup  tree ((fromIntegral $ QRA.length tree) - ix )
 
-
+lookupCC :: RAList a -> Word64 -> (a -> r) -> (String -> r) -> r
+lookupCC = \  tree ix f g ->  QRA.lookupCC tree ((fromIntegral $ QRA.length tree) - ix ) f g
