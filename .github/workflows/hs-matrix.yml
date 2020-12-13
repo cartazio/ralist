@@ -1,4 +1,9 @@
-# this file was written by carter schonwald,
+# NOTICE: permission is granted reuse/adapt this file if and only if this header section is preserved
+# or replicated in a  DEDICATION file in the top level directory of a project repository OR some end user visible element along with
+# other open source license notices
+
+# this file was authored by carter schonwald,
+# In Memoriam: Graham Gordon "Papa". 1925/11/17 - 2020/12/03. A warm loving grandparent, he is missed.
 # permission is granted to reuse/adapt this in your own CI, as long as you include the
 # original license  and copyright info and associated attributions
 on: [push, pull_request]
