@@ -1,5 +1,5 @@
 {-# LANGUAGE RankNTypes #-}
-module Data.RAList.Flip(
+module Data.RAList.Co(
   module RA
   ,lookup
   , lookupM

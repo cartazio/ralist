@@ -228,6 +228,8 @@ module Data.RAList
    , build
    , unfoldr
    , augment
+   , genericLength
+   , wLength
    ) where
 import qualified Prelude
 import Prelude hiding(
@@ -323,6 +325,17 @@ instance Foldable RAList  where
 
 -- Complete binary tree.  The completeness of the trees is an invariant that must
 -- be preserved for the implementation to work.
+
+{-# specialize genericLength :: RAList a -> Word64  #-}
+{-# specialize genericLength :: RAList a -> Integer  #-}
+{-# specialize genericLength :: RAList a -> Int  #-}
+{-# specialize genericLength :: RAList a -> Word  #-}
+genericLength :: Integral w =>RAList a -> w
+genericLength = \ ra -> case ra of RNil ->  0 ; (RCons tot _trtot _tree _rest) -> fromIntegral tot
+
+wLength :: RAList a -> Word64
+wLength = genericLength
+
 data Tree a
      = Leaf a
      | Node a (Tree a) (Tree a)
@@ -384,7 +397,7 @@ head = fmap fst  . uncons
 
 -- | Complexity /O(log n)/.
 last :: RAList a -> a
-last xs= xs !! (fromIntegral $length xs - 1)
+last xs= xs !! (genericLength xs - 1)
 
 half :: Word64 -> Word64
 half = \ n ->  n `quot` 2
@@ -392,7 +405,7 @@ half = \ n ->  n `quot` 2
 -- | Complexity /O(log n)/.
 (!!) :: RAList a -> Word64 -> a
 r !! n | n <  0 = error "Data.RAList.!!: negative index"
-                    | n >=( fromIntegral $ length r)  = error "Data.RAList.!!: index too large"
+                    | n >=( genericLength r)  = error "Data.RAList.!!: index too large"
                     | otherwise = lookupCC  r n  id error
 
 
@@ -412,7 +425,7 @@ lookupCC  =  \  ralist  index  retval retfail ->
                     | ix /= 0        = lookTree (half jsz) (ix - 1) l -- ix between zero and floor of size/2
                     | otherwise     = retval x  -- when ix is zero
       in
-        if  index >= (fromIntegral $ length ralist)
+        if  index >= (genericLength  ralist)
            then  retfail $   "provide index larger than Ralist max valid coord " <> (show index) <> " " <> (show (length ralist))
            else look ralist index
 
@@ -538,12 +551,12 @@ splitTree n treeSize tree@(Node _ l r) xs =
                                 (RCons (suffixSize + halfTreeSize) halfTreeSize r xs)
       (_, True ) -> splitTree (n-1) halfTreeSize l (RCons (suffixSize + halfTreeSize) halfTreeSize r xs)
       (_, False) -> splitTree (n-halfTreeSize-1) halfTreeSize r xs
-    where suffixSize = fromIntegral $  length xs
+    where suffixSize = genericLength xs
           halfTreeSize = half treeSize
 splitTree n treeSize nd@(Leaf _) xs =
   case compare n 1 of
     EQ {-1-} -> xs
-    LT {-0-}-> RCons ((fromIntegral $  length xs) + treeSize) treeSize nd xs
+    LT {-0-}-> RCons ((genericLength xs) + treeSize) treeSize nd xs
     GT {- > 1-} -> error "drop invariant violated, must be smaller than current tree"
 
 
@@ -553,11 +566,11 @@ splitTree n treeSize nd@(Leaf _) xs =
 -- worst case complexity /O(n)/
 simpleDrop :: Word64 -> RAList a -> RAList a
 simpleDrop n xs  | n <= 0 = xs
-                 | n >= (fromIntegral $ length xs) = Nil
+                 | n >= (genericLength xs) = Nil
                  | otherwise =  (loop n xs)
     where loop 0 rs = rs
           loop m (RCons _tot w _ rs) | w <= m = loop (m-w) rs
-          loop m (RCons _tot w (Node _ l r) rs) = loop (m-1) (RCons ((fromIntegral $ length xs) + 2 * w2) w2 l (RCons ((fromIntegral $length xs) + w2) w2 r rs))
+          loop m (RCons _tot w (Node _ l r) rs) = loop (m-1) (RCons ((genericLength xs) + 2 * w2) w2 l (RCons ((genericLength xs) + w2) w2 r rs))
             where w2 = half w
           loop _ _ = error "Data.RAList.drop: impossible"
 
@@ -596,10 +609,12 @@ zip :: RAList a -> RAList b -> RAList (a, b)
 zip = zipWith (,)
 
 zipWith :: forall a b c .  (a->b->c) -> RAList a -> RAList b -> RAList c
-zipWith f xs1 xs2 = case compare (length xs1) (length xs2) of
+zipWith f xs1 xs2 = case compare (wLength xs1) (wLength xs2) of
                       EQ ->  zipTop xs1 xs2
-                      LT -> error "xs1 is smaller than xs2"
-                      GT -> error "x2 is smaller than xs1"
+                      LT ->   zipTop  xs1
+                                      (take (wLength xs1) xs2)   --  error "xs1 is smaller than xs2"
+                      GT ->   zipTop  (take (wLength xs2) xs1)
+                                      xs2 --  error "x2 is smaller than xs1"
 
     --      | s1 == s2 = RAList s1 (zipTop wts1 wts2)
     --    | otherwise = fromList $ Prelude.zipWith f (toList xs1) (toList xs2)
@@ -623,7 +638,7 @@ update i x = adjust (const x) i
 -- Complexity /O(log n)/.
 adjust :: forall a . (a->a) -> Word64 -> RAList a -> RAList a
 adjust f n s | n <  0 = error "Data.RAList.adjust: negative index"
-                          | n >= (fromIntegral $ length s) = error "Data.RAList.adjust: index too large"
+                          | n >= (genericLength s) = error "Data.RAList.adjust: index too large"
                           | otherwise = (adj n s )
   where adj  :: Word64 -> RAList a -> RAList a
         adj j (RCons tot  w t wts') | j < w     = RCons tot w (adjt j (w `quot` 2) t) wts'
