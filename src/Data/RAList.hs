@@ -1,7 +1,7 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveFunctor #-}
-{-# LANGUAGE ExplicitForAll #-}
+{-# LANGUAGE ExplicitForAll, RankNTypes #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE PatternSynonyms,ViewPatterns #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -224,6 +224,10 @@ module Data.RAList
    -- * List conversion
    , toList
    , fromList
+   -- * List style fusion tools
+   , build
+   , unfoldr
+   , augment
    ) where
 import qualified Prelude
 import Prelude hiding(
@@ -310,6 +314,8 @@ instance Foldable RAList  where
 
   length RNil = 0
   length (RCons tot _tres _tree _rest) = fromIntegral tot -- :)
+  foldMap _f RNil = mempty
+  foldMap f (RCons _stot _stre tree rest) =  foldMap f tree <> foldMap f rest
 
 --instance Functor Top where
 --    fmap _ Nil = Nil
@@ -646,3 +652,65 @@ fromList = Prelude.foldr Cons Nil
 errorEmptyList :: String -> a
 errorEmptyList fun =
   error ("Data.RAList." Prelude.++ fun Prelude.++ ": empty list")
+
+
+--- copy fusion codes of your own :) perhaps?
+--- for now these fusion rules are shamelessly copied from the ghc base library
+
+{-# INLINE [1] build #-}
+--- a
+build   :: forall a. (forall b. (a -> b -> b) -> b -> b) -> RAList a
+build = \ g -> g  cons Nil
+
+unfoldr :: (b -> Maybe (a, b)) -> b -> RAList a
+{-# INLINE unfoldr #-} -- See Note [INLINE unfoldr  in ghc base library original source]
+unfoldr f b0 = build (\c n ->
+  let go b = case f b of
+               Just (a, new_b) -> a `c` go new_b
+               Nothing         -> n
+  in go b0)
+
+
+augment :: forall a. (forall b. (a->b->b) -> b -> b) -> RAList a -> RAList a
+{-# INLINE [1] augment #-}
+augment g xs = g cons xs
+
+
+
+{-# RULES
+"fold/build"    forall k z (g::forall b. (a->b->b) -> b -> b) .
+                foldr k z (build g) = g k z
+
+"foldr/augment" forall k z xs (g::forall b. (a->b->b) -> b -> b) .
+                foldr k z (augment g xs) = g k (foldr k z xs)
+
+
+"augment/build" forall (g::forall b. (a->b->b) -> b -> b)
+                       (h::forall b. (a->b->b) -> b -> b) .
+                       augment g (build h) = build (\c n -> g c (h c n))
+#-}
+
+
+
+{-
+additional ru
+
+"foldr/id"                        foldr (:) [] = \x  -> x
+        -- Only activate this from phase 1, because that's
+        -- when we disable the rule that expands (++) into foldr
+
+-- The foldr/cons rule looks nice, but it can give disastrously
+-- bloated code when commpiling
+--      array (a,b) [(1,2), (2,2), (3,2), ...very long list... ]
+-- i.e. when there are very very long literal lists
+-- So I've disabled it for now. We could have special cases
+-- for short lists, I suppose.
+-- "foldr/cons" forall k z x xs. foldr k z (x:xs) = k x (foldr k z xs)
+
+"foldr/single"  forall k z x. foldr k z [x] = k x z
+"foldr/nil"     forall k z.   foldr k z []  = z
+
+"foldr/cons/build" forall k z x (g::forall b. (a->b->b) -> b -> b) .
+                           foldr k z (x:build g) = k x (g k z)
+
+-}
