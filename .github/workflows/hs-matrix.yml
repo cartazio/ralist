@@ -20,7 +20,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ghc:  ['7.10.3','8.0.2','8.2.2','8.4.4','8.6.5', '8.8.3','8.10.2','latest'] # ['7.0.4','7.2.2','7.4.2','7.6.3','7.8.4',
+        ghc:  ['8.0.2','8.2.2','8.4.4','8.6.5', '8.8.3','8.10.2','latest'] # ['7.0.4','7.2.2','7.4.2','7.6.3','7.8.4',
         # needs 7.10 onwards for applicative in base, truly we are in a more civilized era
         cabal: ['3.2.0.0'] # ,'latest'
         os: [ubuntu-latest] #, macOS-latest, windows-latest]
@@ -44,7 +44,8 @@ jobs:
         # uses: actions/setup-haskell@v1.1.4 # the .3 is a bug fix? as is .4
         # the v1 tag tracks the most recent release for the setup-haskell plugin,
         # less ci bump exhaustion this way
-        uses: actions/setup-haskell@v1 # had to bump to .3 then .4, i'm tired :). I'd rather track close, but eh
+        uses: haskell/actions/setup@v1 # migrated , should track v1.1.* maybe?
+        # actions/setup-haskell@v1 # had to bump to .3 then .4, i'm tired :). I'd rather track close, but eh
         with:
           ghc-version: ${{ matrix.ghc }}
           cabal-version: ${{ matrix.cabal }}
