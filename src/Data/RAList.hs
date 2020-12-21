@@ -282,11 +282,11 @@ instance (Show a) => Show (RAList a) where
 instance Monoid (RAList a) where
     mempty  = Nil
 
- #if MIN_VERSION_base(4,11,0)
+#if MIN_VERSION_base(4,11,0)
 
- #elif MIN_VERSION_base(4,9,0)
+#elif MIN_VERSION_base(4,9,0)
     mappend = (<>)
- #endif
+#endif
 
 instance Semigroup (RAList a) where
     (<>) = (++)
