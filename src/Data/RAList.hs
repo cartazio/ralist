@@ -255,6 +255,8 @@ import Data.Word
 import Data.Foldable hiding (concat, concatMap)
 import qualified Control.Monad.Fail as MF
 
+import Control.Monad.Zip
+
 infixl 9  !!
 infixr 5  `cons`, ++
 
@@ -265,8 +267,7 @@ infixr 5  `cons`, ++
 -- [ [], [1], [1,1], [3], [1,3], [1,1,3], [3,3], [7], [1,7], [1,1,7],
 --   [3,7], [1,3,7], [1,1,3,7], [3,3,7], [7,7], [15], ...
 -- (I.e., skew binary numbers.)
---data RAList a = RAList {-# UNPACK #-} !Word64 !(Top a)
---    deriving (Eq,Data,Typeable,Foldable,Traversable)
+
 
 #if !DEBUG
 instance (Show a) => Show (RAList a) where
@@ -298,13 +299,16 @@ instance Semigroup (RAList a) where
 --instance Functor RAList where
 --    fmap f (RAList s skewlist) = RAList s (fmap f skewlist)
 
---instance Applicative RAList where
---    pure = \x -> Cons x Nil
---    (<*>) = zipWith ($)
+instance Applicative RAList where
+    pure = \x -> Cons x Nil
+    (<*>) = zipWith ($)
 
---instance Monad RAList where
---    return = pure
---    (>>=) = flip concatMap
+instance Monad RAList where
+    return = pure
+    (>>=) = flip concatMap
+
+instance MonadZip RAList where
+  mzipWith = zipWith
 
 -- Special list type for (Word64, Tree a), i.e., Top a ~= [(Word64, Tree a)]
 data RAList a = RNil
@@ -392,20 +396,10 @@ empty = Nil
 
 -- | Complexity /O(1)/.
 cons :: a -> RAList a -> RAList a
-cons x (RCons tots1 tsz1 t1  (RCons _tots2 tsz2 t2 rest))
+cons x (RCons tots1 tsz1 t1
+              (RCons _tots2 tsz2 t2 rest))
            | tsz2 == tsz1 = RCons (tots1 + 1) (tsz1 * 2 + 1 ) (Node x t1 t2 ) rest
 cons x rlist  = RCons (1 + wLength rlist ) 1 (Leaf x) rlist
-
-    --case rest of
-    --  RCons tot2 treesize2 more
-    --      | treesize1 == treesize2 -> RCons (tot1+1) (2* treesize1 +1) (Node x )
-    --  _ -> RCons (totsize1 + 1) 1 (Leaf x) rlist
-      -- fall through is for RNill and for  RCons when first two trees are different sizes
-
---cons x (RAList s wts) = RAList (s+1) $
---    case wts of
---    RCons s1 t1 (RCons s2 t2 wts') | s1 == s2 -> RCons (1 + s1 + s2) (Node x t1 t2) wts'
---    _ -> RCons 1 (Leaf x) wts
 
 (++) :: RAList a -> RAList a -> RAList a
 xs  ++ Nil = xs
@@ -493,20 +487,19 @@ map :: (a->b) -> RAList a -> RAList b
 map = fmap
 
 
+-- | 'reverse' @xs@ returns the elements of @xs@ in reverse order.
+-- @xs@ must be finite.
+reverse                 :: RAList a -> RAList a
+#if defined(USE_REPORT_PRELUDE)
+reverse                 =  foldl (flip  cons) Nil
+#else
+reverse l =  rev l Nil
+  where
+    rev Nil    a = a
+    rev (Cons x xs) a = rev xs (Cons x a)
+#endif
 
-reverse :: RAList a -> RAList a
-reverse = fromList . Prelude.reverse . toList
 
----- XXX All the folds could be done more efficiently.
---foldl :: (a -> b -> a) -> a -> RAList b -> a
---foldl f z xs = Prelude.foldl f z (toList xs)
-
---foldl' :: (a -> b -> a) -> a -> RAList b -> a
---foldl' f z xs = List.foldl' f z (toList xs)
-
---foldl1 :: (a -> a -> a) -> RAList a -> a
---foldl1 f xs | null xs = errorEmptyList "foldl1"
---            | otherwise = Prelude.foldl1 f (toList xs)
 
 foldl1' :: (a -> a -> a) -> RAList a -> a
 foldl1' f xs | null xs = errorEmptyList "foldl1'"
