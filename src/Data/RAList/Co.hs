@@ -1,7 +1,7 @@
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RankNTypes, DerivingVia #-}
 module Data.RAList.Co(
-  module RA
-  ,lookup
+  --module RA
+  lookup
   , lookupM
   , lookupWithDefault, (!!), lookupCC) where
 
@@ -18,27 +18,34 @@ import Prelude hiding (
     )
 
 
-import Data.RAList  as RA hiding (
-    (!!)
-   ,lookupWithDefault
-   ,lookupM
-   ,lookup
-   , lookupCC )
+--import qualfieData.RAList  as RA hiding (
+--    (!!)
+--   ,lookupWithDefault
+--   ,lookupM
+--   ,lookup
+--   , lookupCC )
 import  qualified Data.RAList as QRA
 import qualified Control.Monad.Fail as MF
+import Data.Foldable
 
+
+
+
+newtype RAList a = CoIndex {reindex :: QRA.RAList a }
+     deriving (Foldable,Functor) via QRA.RAList
+     deriving (Monoid,Semigroup,Eq,Show) via QRA.RAList a
 (!!) :: RAList a -> Word64 -> a
 rls  !! n |  n <  0 = error "Data.RAList.Flip.!!: negative index"
                         | n >= (fromIntegral $   length rls)  = error "Data.RAList.Flip.!!: index too large"
-                        | otherwise =  rls QRA.!! ((fromIntegral $length rls)  - n )
+                        | otherwise =  reindex rls QRA.!! ((fromIntegral $length rls)  - n )
 lookupWithDefault :: forall t. t -> Word64 -> RAList t -> t
-lookupWithDefault = \ def ix tree -> QRA.lookupWithDefault def ((fromIntegral $ length tree) - ix ) tree
+lookupWithDefault = \ def ix tree -> QRA.lookupWithDefault def ((fromIntegral $ length tree) - ix ) $ reindex tree
 
 lookupM :: forall a m . MF.MonadFail m =>  Word64 -> RAList a ->  m a
-lookupM = \ ix tree ->  QRA.lookupM  tree ((fromIntegral $ QRA.length tree)  - ix)
+lookupM = \ ix tree ->  QRA.lookupM  (reindex tree) ((fromIntegral $ length tree)  - ix)
 
 lookup :: forall a. Word64 -> RAList a ->a
-lookup =  \ ix tree -> QRA.lookup  tree ((fromIntegral $ QRA.length tree) - ix )
+lookup =  \ ix tree -> QRA.lookup  (reindex tree) ((fromIntegral $ length tree) - ix )
 
 lookupCC :: RAList a -> Word64 -> (a -> r) -> (String -> r) -> r
-lookupCC = \  tree ix f g ->  QRA.lookupCC tree ((fromIntegral $ QRA.length tree) - ix ) f g
+lookupCC = \  tree ix f g ->  QRA.lookupCC (reindex tree) ((fromIntegral $ length tree) - ix ) f g
