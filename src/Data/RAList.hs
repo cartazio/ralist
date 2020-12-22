@@ -241,6 +241,8 @@ import Prelude hiding(
     )
 import qualified Data.List as List
 
+-- this should be a cabal flag for debugging data structure bugs :)
+#define DEBUG 0
 
 #if MIN_VERSION_base(4,11,0)
 #else
@@ -266,8 +268,10 @@ infixr 5  `cons`, ++
 --data RAList a = RAList {-# UNPACK #-} !Word64 !(Top a)
 --    deriving (Eq,Data,Typeable,Foldable,Traversable)
 
+#if !DEBUG
 instance (Show a) => Show (RAList a) where
     showsPrec p xs = showParen (p >= 10) $ showString "fromList " . showsPrec 10 (toList xs)
+#endif
 
 --instance (Read a) => Read (RAList a) where
 --    readsPrec p = readParen (p > 10) $ \ r -> [(fromList xs, t) | ("fromList", s) <- lex r, (xs, t) <- reads s]
@@ -308,7 +312,15 @@ data RAList a = RNil
                         {-# UNPACK #-}  !Word64 --  size of this subtree
                                         (Tree a)
                                         (RAList a)
-    deriving (Eq,Data,Typeable,Functor,Traversable)
+    deriving (Eq
+              ,Data
+              ,Typeable
+              ,Functor
+              ,Traversable
+#if DEBUG
+              , Show
+#endif
+              )
 
 instance Foldable RAList  where
   null Nil  =  True
@@ -339,7 +351,16 @@ wLength = genericLength
 data Tree a
      = Leaf a
      | Node a (Tree a) (Tree a)
-     deriving (Eq,Data,Typeable,Functor,Traversable)
+     deriving
+        (Eq
+        ,Data
+        ,Typeable
+        ,Functor
+        ,Traversable
+#if DEBUG
+        , Show
+#endif
+         )
 
 instance Foldable Tree  where
   -- Tree is a PREORDER sequence layout
