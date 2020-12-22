@@ -1,4 +1,4 @@
-{-# LANGUAGE RankNTypes, DerivingVia #-}
+{-# LANGUAGE RankNTypes, DerivingVia, DeriveTraversable #-}
 module Data.RAList.Co(
   --module RA
   lookup
@@ -32,8 +32,12 @@ import Data.Foldable
 
 
 newtype RAList a = CoIndex {reindex :: QRA.RAList a }
-     deriving (Foldable,Functor) via QRA.RAList
-     deriving (Monoid,Semigroup,Eq,Show) via QRA.RAList a
+    deriving stock (Traversable)
+    deriving (Foldable,Functor) via QRA.RAList
+    deriving (Monoid,Semigroup,Eq,Show) via QRA.RAList a
+
+
+
 (!!) :: RAList a -> Word64 -> a
 rls  !! n |  n <  0 = error "Data.RAList.Flip.!!: negative index"
                         | n >= (fromIntegral $   length rls)  = error "Data.RAList.Flip.!!: index too large"
