@@ -16,7 +16,7 @@ Description:    Random access list with a list compatible interface.
 -- URL for the project homepage or repository.
 homepage:            http://github.com/cartazio/ralist
 
-tested-with: GHC==8.10.2, GHC==8.8.4, GHC==8.6.5, GHC==8.4.4, GHC==8.2.2, GHC==8.0.2
+tested-with: GHC==8.10.2, GHC==8.8.4, GHC==8.6.5
 extra-source-files:   changelog.md
                       LICENSE
 
@@ -28,7 +28,7 @@ source-repository head
 
 
 Library
-  Build-Depends: base >= 4.9 && < 6
+  Build-Depends: base >= 4.12 && < 6
   Exposed-modules:      Data.RAList, Data.RAList.Co
   ghc-options: -Wall -O2
   hs-source-dirs:     src

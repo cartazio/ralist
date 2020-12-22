@@ -287,11 +287,6 @@ instance (Show a) => Show (RAList a) where
 instance Monoid (RAList a) where
     mempty  = Nil
 
-#if MIN_VERSION_base(4,11,0)
-
-#elif MIN_VERSION_base(4,9,0)
-    mappend = (<>)
-#endif
 
 instance Semigroup (RAList a) where
     (<>) = (++)
@@ -330,14 +325,10 @@ instance Foldable RAList  where
   null Nil  =  True
   null _ = False
 
-  length RNil = 0
-  length (RCons tot _tres _tree _rest) = fromIntegral tot -- :)
+  length = genericLength -- :)
+
   foldMap _f RNil = mempty
-#if MIN_VERSION_base(4,11,0)
   foldMap f (RCons _stot _stre tree rest) = foldMap f tree <> foldMap f rest
-#else
-  foldMap f (RCons _stot _stre tree rest) = foldMap f tree `mappend` foldMap f rest
-#endif
 
 --instance Functor Top where
 --    fmap _ Nil = Nil
@@ -373,11 +364,8 @@ data Tree a
 instance Foldable Tree  where
   -- Tree is a PREORDER sequence layout
   foldMap f (Leaf a) = f a
-#if MIN_VERSION_base(4,11,0)
   foldMap f (Node a l r) =  f a <> foldMap f l <>  foldMap f r
-#else
-  foldMap f (Node a l r) =  f a `mappend` foldMap f l `mappend`  foldMap f r
-#endif
+
 --instance Functor Tree where
 --     fmap f (Leaf x)     = Leaf (f x)
 --     fmap f (Node x l r) = Node (f x) (fmap f l) (fmap f r)
