@@ -365,8 +365,8 @@ empty = Nil
 -- | Complexity /O(1)/.
 cons :: a -> RAList a -> RAList a
 cons x (RCons tots1 tsz1 t1  (RCons _tots2 tsz2 t2 rest))
-        | tsz2 == tsz1 = RCons (tots1 + 1) (tsz1 * 2 + 1 ) (Node x t1 t2 ) rest
-cons x rlist  = RCons 1 1 (Leaf x) rlist
+           | tsz2 == tsz1 = RCons (tots1 + 1) (tsz1 * 2 + 1 ) (Node x t1 t2 ) rest
+cons x rlist  = RCons (1 + wLength rlist ) 1 (Leaf x) rlist
 
     --case rest of
     --  RCons tot2 treesize2 more
@@ -387,9 +387,11 @@ xs  ++ ys = foldr cons ys xs
 
 uncons :: RAList a -> Maybe (a, RAList a)
 uncons (RNil) =  Nothing
-uncons (RCons _ _  (Leaf h)     wts) =  Just (h,wts)
-uncons (RCons tot w (Node x l r) wts) = Just (x, (RCons (tot - 1) w2 l (RCons (tot -1 - w2 ) w2 r wts)))
-      where w2 = w `quot` 2
+uncons (RCons _tot _treetot  (Leaf h)     wts) =  Just (h,wts)
+uncons (RCons _tot w (Node x l r) wts) = Just (x, (RCons (restsize + w2 + w2) w2 l (RCons (restsize + w2) w2 r wts)))
+      where
+        w2 = w `quot` 2
+        restsize = wLength wts
 
 -- | Complexity /O(1)/.
 head :: RAList a -> Maybe a
