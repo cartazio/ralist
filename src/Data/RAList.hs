@@ -96,10 +96,10 @@ module Data.RAList
    -- ** Repetition
    , replicate
 
-{-RA
+
    -- ** Unfolding
    , unfoldr
--}
+
 
    -- * Sublists
 
@@ -206,7 +206,7 @@ module Data.RAList
    , insertBy
    , maximumBy
    , minimumBy
-
+-}
    -- ** The \"@generic@\" operations
    -- | The prefix \`@generic@\' indicates an overloaded function that
    -- is a generalized version of a "Prelude" function.
@@ -217,7 +217,7 @@ module Data.RAList
    , genericSplitAt
    , genericIndex
    , genericReplicate
--}
+
    -- * Update
    , update
    , adjust
@@ -226,9 +226,8 @@ module Data.RAList
    , fromList
    -- * List style fusion tools
    , build
-   , unfoldr
    , augment
-   , genericLength
+
    , wLength
    ) where
 import qualified Prelude
@@ -256,6 +255,8 @@ import Data.Foldable hiding (concat, concatMap)
 import qualified Control.Monad.Fail as MF
 
 import Control.Monad.Zip
+
+import Numeric.Natural
 
 infixl 9  !!
 infixr 5  `cons`, ++
@@ -329,6 +330,14 @@ instance Foldable RAList  where
 
   foldMap _f RNil = mempty
   foldMap f (RCons _stot _stre tree rest) = foldMap f tree <> foldMap f rest
+
+  -- not sure if providing my own foldr is a good idea, but lets try for now : )
+  {-# INLINE [0] foldr #-}
+  foldr k z = go
+          where
+            go Nil     = z
+            go (Cons y ys) = y `k` go ys
+
 
 --instance Functor Top where
 --    fmap _ Nil = Nil
@@ -417,7 +426,7 @@ half = \ n ->  n `quot` 2
 -- | Complexity /O(log n)/.
 (!!) :: RAList a -> Word64 -> a
 r !! n | n <  0 = error "Data.RAList.!!: negative index"
-                    | n >=( genericLength r)  = error "Data.RAList.!!: index too large"
+                    | n >= genericLength r  = error "Data.RAList.!!: index too large"
                     | otherwise = lookupCC  r n  id error
 
 
@@ -444,9 +453,11 @@ lookupCC  =  \  ralist  index  retval retfail ->
 
 -- todo before release: rewrite in terms of lookupCC
 lookup :: forall a. RAList a ->  Word64 -> a
-lookup  = \ xs i -> maybe (error  "woops") id (lookupM xs i)
+lookup  = \ xs i ->    lookupCC xs i id error
 
-
+genericIndex :: Integral n => RAList a -> n -> a
+genericIndex ls ix | word64Representable ix =  ls !! (fromIntegral ix)
+                   | otherwise = error "argument index for Data.RAList.genericIndex not representable in Word64"
 
 
 {-# SPECIALIZE lookupM :: forall a . RAList a ->  Word64 -> Maybe a  #-}
@@ -536,21 +547,48 @@ concatMap f = concat . fmap f
 replicate :: Word64 -> a -> RAList a
 replicate n v = fromList $ Prelude.replicate (fromIntegral n)  v
 
+{-# SPECIALIZE genericReplicate ::  Int  -> a -> RAList a #-}
+{-# SPECIALIZE genericReplicate ::  Word -> a -> RAList a #-}
+genericReplicate :: Integral n => n -> a -> RAList a
+genericReplicate siz val
+  |  word64Representable siz    = replicate (fromIntegral siz) val
+  |  siz < 0 = error "negative replicate size arg in Data.RAList.genericReplicate"
+  | otherwise = error "too large integral arg to Data.Ralist.genericReplicate"
+
+-- when converting from  a non Word64 integral type to Word64, we want to make sure either
+-- that the source integral type is representable / embedded within word64
+-- OR that if its a type which can represent a Word64 value exactly, the value does
+-- not exceed the size of the largest positive Word64 value. At least with Replicate :)
+word64Representable :: Integral a => a -> Bool
+word64Representable siz = fromIntegral siz <= (maxBound :: Word64)   || siz <= fromIntegral (maxBound :: Word64)
+
+-- unlike drop, i dont think we can do better than the list take in complexity
 take :: Word64 -> RAList a -> RAList a
-take n ls | n < fromIntegral (maxBound :: Int) = fromList $  Prelude.take (fromIntegral n) $ toList ls
+take n ls | n <  (maxBound :: Word64) = fromList $  Prelude.take (fromIntegral n) $ toList ls
           | otherwise = ls
+
+genericTake :: Integral n => n -> RAList a -> RAList a
+genericTake siz ls |  siz <= 0 =  Nil
+                   | word64Representable siz =  take (fromIntegral siz) ls
+                   | otherwise = error "too large integral arg for Data.RAList.genericTake"
 
 -- | drop i l
 -- @`drop` i l@ where l has length n has worst case complexity  Complexity /O(log n)/, Average case
 -- complexity should be /O(min(log i, log n))/.
 drop :: Word64 -> RAList a -> RAList a
-drop n xs | n <= 0 = xs
-drop n  rlist  | n >=( fromIntegral $ length rlist) = Nil
+drop n rlist   | n <= 0 = rlist
+drop n rlist  | n >=( genericLength rlist) = Nil
 drop n rlist  = (loop n rlist)
   where loop 0 xs = xs
         loop m (RCons _tot treesize _ xs) | treesize <= m = loop (m-treesize) xs -- drops full trees
         loop m (RCons _tot treesize  tre xs) = splitTree m treesize tre xs -- splits tree
         loop _ _ = error "Data.RAList.drop: impossible"
+
+
+genericDrop :: Integral n => n -> RAList a -> RAList a
+genericDrop siz ls | siz <= 0 = ls
+                   | word64Representable siz = drop (fromIntegral siz) ls
+                   | otherwise = Nil -- because a list with more than putatively 2**64 elements :)
 
 -- helper function for drop
 -- drops the first n elements of the tree and adds them to the front
@@ -558,10 +596,10 @@ splitTree :: Word64 -> Word64 -> Tree a -> RAList a -> RAList a
 splitTree n treeSize tree@(Node _ l r) xs =
     case (compare n  1, n <= half treeSize) of
       (LT {- n==0 -}, _ )  -> RCons (suffixSize + treeSize)  treeSize tree xs
-      (EQ {- n==1 -}, _ ) -> RCons (suffixSize + 2* halfTreeSize) halfTreeSize l
+      (EQ {- n==1 -}, _ )  -> RCons (suffixSize + 2* halfTreeSize) halfTreeSize l
                                 (RCons (suffixSize + halfTreeSize) halfTreeSize r xs)
-      (_, True ) -> splitTree (n-1) halfTreeSize l (RCons (suffixSize + halfTreeSize) halfTreeSize r xs)
-      (_, False) -> splitTree (n-halfTreeSize-1) halfTreeSize r xs
+      (_, True )           -> splitTree (n-1) halfTreeSize l (RCons (suffixSize + halfTreeSize) halfTreeSize r xs)
+      (_, False)           -> splitTree (n-halfTreeSize-1) halfTreeSize r xs
     where suffixSize = genericLength xs
           halfTreeSize = half treeSize
 splitTree n treeSize nd@(Leaf _) xs =
@@ -586,8 +624,14 @@ simpleDrop n xs  | n <= 0 = xs
           loop _ _ = error "Data.RAList.drop: impossible"
 
 
+-- we *could* try to do better here, but this is fine
 splitAt :: Word64 -> RAList a -> (RAList a, RAList a)
 splitAt n xs = (take n xs, drop n xs)
+
+genericSplitAt :: Integral n => n  -> RAList a -> (RAList a, RAList a)
+genericSplitAt siz ls | siz <=0 = (Nil,ls)
+                      | word64Representable siz = (take (fromIntegral siz) ls, drop (fromIntegral siz) ls)
+                      | otherwise = (ls, Nil)
 
 --elem :: (Eq a) => a -> RAList a -> Bool
 --elem x = any (== x)
@@ -621,11 +665,13 @@ zip = zipWith (,)
 
 zipWith :: forall a b c .  (a->b->c) -> RAList a -> RAList b -> RAList c
 zipWith f xs1 xs2 = case compare (wLength xs1) (wLength xs2) of
-                      EQ ->  zipTop xs1 xs2
-                      LT ->   zipTop  xs1
-                                      (take (wLength xs1) xs2)   --  error "xs1 is smaller than xs2"
-                      GT ->   zipTop  (take (wLength xs2) xs1)
-                                      xs2 --  error "x2 is smaller than xs1"
+                      EQ -> zipTop xs1 xs2
+
+                      LT -> zipTop  xs1
+                                    (take (wLength xs1) xs2)
+
+                      GT ->  zipTop  (take (wLength xs2) xs1)
+                                     xs2
 
     --      | s1 == s2 = RAList s1 (zipTop wts1 wts2)
     --    | otherwise = fromList $ Prelude.zipWith f (toList xs1) (toList xs2)
@@ -714,6 +760,15 @@ augment g xs = g cons xs
 "augment/build" forall (g::forall b. (a->b->b) -> b -> b)
                        (h::forall b. (a->b->b) -> b -> b) .
                        augment g (build h) = build (\c n -> g c (h c n))
+
+--- not sure if these latter rules will be useful for RALIST
+
+"foldr/cons/build" forall k z x (g::forall b. (a->b->b) -> b -> b) .
+                           foldr k z (Cons x (build g)) = k x (g k z)
+
+
+"foldr/single"  forall k z x. foldr k z (Cons x Nil) = k x z
+"foldr/nil"     forall k z.   foldr k z Nil  = z
 #-}
 
 
@@ -726,7 +781,7 @@ additional ru
         -- when we disable the rule that expands (++) into foldr
 
 -- The foldr/cons rule looks nice, but it can give disastrously
--- bloated code when commpiling
+-- bloated code when compiling
 --      array (a,b) [(1,2), (2,2), (3,2), ...very long list... ]
 -- i.e. when there are very very long literal lists
 -- So I've disabled it for now. We could have special cases
