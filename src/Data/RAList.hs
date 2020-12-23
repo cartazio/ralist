@@ -331,7 +331,7 @@ instance Foldable RAList  where
   foldMap _f RNil = mempty
   foldMap f (RCons _stot _stre tree rest) = foldMap f tree <> foldMap f rest
 
-  -- not sure if providing my own foldr is a good idea, but lets try for now : )
+   --not sure if providing my own foldr is a good idea, but lets try for now : )
   {-# INLINE [0] foldr #-}
   foldr k z = go
           where
@@ -391,12 +391,21 @@ pattern Cons x xs <-( uncons -> Just(x,xs) )
 empty :: RAList a
 empty = Nil
 
+{-# NOINLINE CONLIKE [3]   cons #-}
 -- | Complexity /O(1)/.
 cons :: a -> RAList a -> RAList a
+cons = \ x ls -> case ls of
+    (RCons tots1 tsz1 t1
+       (RCons _tots2 tsz2 t2 rest))
+              | tsz2 == tsz1
+          -> RCons (tots1 + 1) (tsz1 * 2 + 1 ) (Node x t1 t2 ) rest
+    rlist -> RCons (1 + wLength rlist ) 1 (Leaf x) rlist
+{-
 cons x (RCons tots1 tsz1 t1
               (RCons _tots2 tsz2 t2 rest))
            | tsz2 == tsz1 = RCons (tots1 + 1) (tsz1 * 2 + 1 ) (Node x t1 t2 ) rest
 cons x rlist  = RCons (1 + wLength rlist ) 1 (Leaf x) rlist
+-}
 
 (++) :: RAList a -> RAList a -> RAList a
 xs  ++ Nil = xs
@@ -455,6 +464,12 @@ lookupCC  =  \  ralist  index  retval retfail ->
 lookup :: forall a. RAList a ->  Word64 -> a
 lookup  = \ xs i ->    lookupCC xs i id error
 
+
+{-# SPECIALIZE genericIndex :: RAList a -> Integer -> a #-}
+{-# SPECIALIZE genericIndex :: RAList a -> Word -> a #-}
+{-# SPECIALIZE genericIndex :: RAList a -> Word64 -> a #-}
+{-# SPECIALIZE genericIndex :: RAList a -> Int -> a #-}
+{-# SPECIALIZE genericIndex :: RAList a -> Natural -> a #-}
 genericIndex :: Integral n => RAList a -> n -> a
 genericIndex ls ix | word64Representable ix =  ls !! (fromIntegral ix)
                    | otherwise = error "argument index for Data.RAList.genericIndex not representable in Word64"
@@ -764,11 +779,11 @@ augment g xs = g cons xs
 --- not sure if these latter rules will be useful for RALIST
 
 "foldr/cons/build" forall k z x (g::forall b. (a->b->b) -> b -> b) .
-                           foldr k z (Cons x (build g)) = k x (g k z)
+                           foldr k z (cons x (build g)) = k x (g k z)
 
 
-"foldr/single"  forall k z x. foldr k z (Cons x Nil) = k x z
-"foldr/nil"     forall k z.   foldr k z Nil  = z
+"foldr/single"  forall k z x. foldr k z (cons x RNil) = k x z
+"foldr/nil"     forall k z.   foldr k z RNil  = z
 #-}
 
 
