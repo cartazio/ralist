@@ -21,7 +21,7 @@ module Data.RAList
      RAList(Nil,Cons)
 
    -- * Basic functions
-   , empty
+   --, empty
    , cons
    , uncons
 --   , singleton
@@ -251,11 +251,11 @@ import Data.Data(Data,Typeable)
 --import Data.Functor.Identity(runIdentity)
 import Data.Word
 
-import Data.Foldable hiding (concat, concatMap)
+import  Data.Foldable as F hiding (concat, concatMap)
 import qualified Control.Monad.Fail as MF
 
 import Control.Monad.Zip
-
+import Control.Applicative (liftA2)
 import Numeric.Natural
 
 infixl 9  !!
@@ -290,6 +290,7 @@ instance Monoid (RAList a) where
 
 
 instance Semigroup (RAList a) where
+    {-# INLINE (<>) #-}
     (<>) = (++)
 
 --instance Functor RAList where
@@ -316,11 +317,18 @@ data RAList a = RNil
               ,Data
               ,Typeable
               ,Functor
-              ,Traversable
+              --,Traversable
 #if DEBUG
               , Show
 #endif
               )
+
+
+instance Traversable RAList where
+    {-# INLINE traverse #-} -- so that traverse can fuse
+    traverse f = foldr cons_f (pure Nil)
+      where cons_f x ys = liftA2 (cons) (f x) ys
+
 
 instance Foldable RAList  where
   null Nil  =  True
@@ -328,8 +336,12 @@ instance Foldable RAList  where
 
   length = genericLength -- :)
 
-  foldMap _f RNil = mempty
-  foldMap f (RCons _stot _stre tree rest) = foldMap f tree <> foldMap f rest
+
+ --- {-# INLINE foldMap #-}
+    -- This INLINE allows more list functions to fuse. See #9848.
+  foldMap f = foldr (mappend . f) mempty
+  --foldMap _f RNil = mempty
+  --foldMap f (RCons _stot _stre tree rest) = foldMap f tree <> foldMap f rest
 
    --not sure if providing my own foldr is a good idea, but lets try for now : )
   {-# INLINE [0] foldr #-}
@@ -337,7 +349,8 @@ instance Foldable RAList  where
           where
             go Nil     = z
             go (Cons y ys) = y `k` go ys
-
+  {-# INLINE toList #-}
+  toList = foldr (:) []
 
 --instance Functor Top where
 --    fmap _ Nil = Nil
@@ -351,7 +364,7 @@ instance Foldable RAList  where
 {-# specialize genericLength :: RAList a -> Int  #-}
 {-# specialize genericLength :: RAList a -> Word  #-}
 genericLength :: Integral w =>RAList a -> w
-genericLength = \ ra -> case ra of RNil ->  0 ; (RCons tot _trtot _tree _rest) -> fromIntegral tot
+genericLength = \ra -> case ra of RNil ->  0 ; (RCons tot _trtot _tree _rest) -> fromIntegral tot
 
 wLength :: RAList a -> Word64
 wLength = genericLength
@@ -386,12 +399,10 @@ pattern Nil = RNil
 pattern Cons :: forall a. a -> RAList a -> RAList a
 pattern Cons x xs <-( uncons -> Just(x,xs) )
  where Cons x xs = cons x xs
-{-# COMPLETE Nil,Cons#-}
+{-# COMPLETE Nil,Cons #-}
 
-empty :: RAList a
-empty = Nil
 
-{-# NOINLINE CONLIKE [3]   cons #-}
+{-# INLINE CONLIKE [0]   cons #-}
 -- | Complexity /O(1)/.
 cons :: a -> RAList a -> RAList a
 cons = \ x ls -> case ls of
@@ -407,11 +418,39 @@ cons x (RCons tots1 tsz1 t1
 cons x rlist  = RCons (1 + wLength rlist ) 1 (Leaf x) rlist
 -}
 
-(++) :: RAList a -> RAList a -> RAList a
-xs  ++ Nil = xs
-Nil ++ ys = ys
-xs  ++ ys = foldr cons ys xs
+--(++) :: RAList a -> RAList a -> RAList a
+--xs  ++ Nil = xs
+--Nil ++ ys = ys
+--xs  ++ ys = foldr cons ys xs
 
+(++) :: RAList a -> RAList a-> RAList a
+{-# NOINLINE  (++) #-}    -- We want the RULE to fire first.
+                             -- It's recursive, so won't inline anyway,
+                             -- but saying so is more explicit
+(++) Nil     ys = ys
+(++) xs    Nil = xs
+(++) (Cons x xs) ys = Cons x ( xs ++ ys)
+
+{-# RULES
+"RALIST/++"    [~1] forall xs ys. xs ++ ys = augment (\c n -> foldr c n xs) ys
+  #-}
+
+
+{-
+
+      (++) :: [a] -> [a] -> [a]
+      {-# NOINLINE [1] (++) #-}    -- We want the RULE to fire first.
+                                   -- It's recursive, so won't inline anyway,
+                                   -- but saying so is more explicit
+      (++) []     ys = ys
+      (++) (x:xs) ys = x : xs ++ ys
+
+      {-# RULES
+      "++"    [~1] forall xs ys. xs ++ ys = augment (\c n -> foldr c n xs) ys
+        #-}
+
+
+-}
 
 uncons :: RAList a -> Maybe (a, RAList a)
 uncons (RNil) =  Nothing
@@ -528,10 +567,27 @@ foldl1' f xs | null xs = errorEmptyList "foldl1'"
 --            | otherwise = Prelude.foldr1 f (toList xs)
 
 concat :: RAList (RAList a) -> RAList a
-concat = foldr (<>) empty
+concat = foldr (<>) Nil
+{-# NOINLINE [1] concat #-}
+
+{-# RULES
+  "concat" forall xs. concat xs =
+     build (\c n -> foldr (\x y -> foldr c y x) n xs)
+-- We don't bother to turn non-fusible applications of concat back into concat
+ #-}
+
+
 
 concatMap :: (a -> RAList b) -> RAList a -> RAList b
-concatMap f = concat . fmap f
+--concatMap f = concat . fmap f
+concatMap f             =  foldr ((++) . f) Nil
+
+{-# NOINLINE [1] concatMap #-}
+
+{-# RULES
+"concatMap" forall f xs . concatMap f xs =
+    build (\c n -> foldr (\x b -> foldr c b (f x)) n xs)
+ #-}
 
 --and :: RAList Bool -> Bool
 --and = foldr (&&) True
@@ -564,6 +620,9 @@ replicate n v = fromList $ Prelude.replicate (fromIntegral n)  v
 
 {-# SPECIALIZE genericReplicate ::  Int  -> a -> RAList a #-}
 {-# SPECIALIZE genericReplicate ::  Word -> a -> RAList a #-}
+{-# SPECIALIZE genericReplicate ::  Word64 -> a -> RAList a #-}
+{-# SPECIALIZE genericReplicate ::  Integer-> a -> RAList a #-}
+{-# SPECIALIZE genericReplicate ::  Natural -> a -> RAList a #-}
 genericReplicate :: Integral n => n -> a -> RAList a
 genericReplicate siz val
   |  word64Representable siz    = replicate (fromIntegral siz) val
@@ -625,7 +684,6 @@ splitTree n treeSize nd@(Leaf _) xs =
 
 
 
-
 -- Old version of drop
 -- worst case complexity /O(n)/
 simpleDrop :: Word64 -> RAList a -> RAList a
@@ -661,7 +719,7 @@ lookupL x xys = Prelude.lookup x (toList xys)
 filter :: (a->Bool) -> RAList a -> RAList a
 filter p xs =
     case uncons xs of
-      Nothing -> empty
+      Nothing -> Nil
       Just(h,tl) ->
         let
            ys = filter p tl
@@ -685,7 +743,7 @@ zipWith f xs1 xs2 = case compare (wLength xs1) (wLength xs2) of
                       LT -> zipTop  xs1
                                     (take (wLength xs1) xs2)
 
-                      GT ->  zipTop  (take (wLength xs2) xs1)
+                      GT -> zipTop  (take (wLength xs2) xs1)
                                      xs2
 
     --      | s1 == s2 = RAList s1 (zipTop wts1 wts2)
@@ -725,6 +783,7 @@ adjust f n s | n <  0 = error "Data.RAList.adjust: negative index"
 -- XXX Make this a good producer
 -- | Complexity /O(n)/.
 --toList :: RAList a -> [a]
+--toList = foldr (:) []
 --toList ra = tops ra []
 --  where flat (Leaf x)     a = x : a
 --        flat (Node x l r) a = x : flat l (flat r a)
@@ -765,26 +824,45 @@ augment g xs = g cons xs
 
 
 {-# RULES
-"fold/build"    forall k z (g::forall b. (a->b->b) -> b -> b) .
+"RALIST/fold/build"    forall k z (g::forall b. (a->b->b) -> b -> b) .
                 foldr k z (build g) = g k z
 
-"foldr/augment" forall k z xs (g::forall b. (a->b->b) -> b -> b) .
+"RALIST/foldr/augment" forall k z xs (g::forall b. (a->b->b) -> b -> b) .
                 foldr k z (augment g xs) = g k (foldr k z xs)
 
 
-"augment/build" forall (g::forall b. (a->b->b) -> b -> b)
+"RALIST/augment/build" forall (g::forall b. (a->b->b) -> b -> b)
                        (h::forall b. (a->b->b) -> b -> b) .
                        augment g (build h) = build (\c n -> g c (h c n))
 
 --- not sure if these latter rules will be useful for RALIST
 
-"foldr/cons/build" forall k z x (g::forall b. (a->b->b) -> b -> b) .
+"RALIST/foldr/cons/build" forall k z x (g::forall b. (a->b->b) -> b -> b) .
                            foldr k z (cons x (build g)) = k x (g k z)
 
 
-"foldr/single"  forall k z x. foldr k z (cons x RNil) = k x z
-"foldr/nil"     forall k z.   foldr k z RNil  = z
+"RALIST/foldr/single"  forall k z x. foldr k z (cons x RNil) = k x z
+"RALIST/foldr/nil"     forall k z.   foldr k z RNil  = z
+
+
+"RALIST/foldr/cons/build" forall k z x (g::forall b. (a->b->b) -> b -> b) .
+                           foldr k z (cons x (build g)) = k x (g k z)
+
+"RALIST/augment/build" forall (g::forall b. (a->b->b) -> b -> b)
+                       (h::forall b. (a->b->b) -> b -> b) .
+                       augment g (build h) = build (\c n -> g c (h c n))
+"RALIST/augment/nil"   forall (g::forall b. (a->b->b) -> b -> b) .
+                        augment g RNil = build g
+
+"RALIST/foldr/id"                        foldr (cons) RNil = \x  -> x
+"RALIST/foldr/app"     [1] forall ys. foldr (cons) ys = \xs -> xs ++ ys
+        -- Only activate this from phase 1, because that's
+        -- when we disable the rule that expands (++) into foldr
 #-}
+
+{-# RULES
+"RALIST/++"    [~1] forall xs ys. xs ++ ys = augment (\c n -> foldr c n xs) ys
+  #-}
 
 
 

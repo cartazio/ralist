@@ -13,6 +13,9 @@ import Prelude hiding (
     )
 import qualified Prelude
 
+empty :: RAList a
+empty = Nil
+
 main = hspec $ do
   describe "RAList.cons" $ do
     it "adds to an empty list" $ do
