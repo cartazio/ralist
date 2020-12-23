@@ -258,6 +258,8 @@ import Control.Monad.Zip
 import Control.Applicative (liftA2)
 import Numeric.Natural
 
+import GHC.Exts (oneShot)
+
 infixl 9  !!
 infixr 5  `cons`, ++
 
@@ -387,6 +389,9 @@ instance Foldable Tree  where
   -- Tree is a PREORDER sequence layout
   foldMap f (Leaf a) = f a
   foldMap f (Node a l r) =  f a <> foldMap f l <>  foldMap f r
+  {-# INLINE foldl' #-}
+  foldl' k z0 xs =
+      foldr (\(v::a) (fn::b->b) -> oneShot (\(z::b) -> z `seq` fn (k z v))) (id :: b -> b) xs z0
 
 --instance Functor Tree where
 --     fmap f (Leaf x)     = Leaf (f x)
@@ -716,20 +721,31 @@ genericSplitAt siz ls | siz <=0 = (Nil,ls)
 lookupL :: (Eq a) => a -> RAList (a, b) -> Maybe b
 lookupL x xys = Prelude.lookup x (toList xys)
 
-filter :: (a->Bool) -> RAList a -> RAList a
-filter p xs =
-    case uncons xs of
-      Nothing -> Nil
-      Just(h,tl) ->
-        let
-           ys = filter p tl
-        in
-           if p h then h `cons` ys else  ys
+
+{-# NOINLINE [1] filter #-}
+filter :: (a -> Bool) -> RAList a -> RAList a
+filter _p Nil    = Nil
+filter p  (Cons x xs)
+  | p x         = x `Cons` filter p xs
+  | otherwise      = filter p xs
+
+
+
+{-# INLINE [0] filterFB #-} -- See Note [Inline FB functions] in ghc base
+filterFB :: (a -> b -> b) -> (a -> Bool) -> a -> b -> b
+filterFB c p x r | p x       = x `c` r
+                 | otherwise = r
+
+--- ANY late rule is problematic that uses cons :(
+{-# RULES
+"RA/filter"     [~1] forall p xs.  filter p xs = build (\c n -> foldr (filterFB c p) n xs)
+"RA/filterList" [1]  forall p.     foldr (filterFB (cons) p) RNil = filter p
+"RA/filterFB"        forall c p q. filterFB (filterFB c p) q = filterFB c (\x -> q x && p x)
+ #-}
 
 
 partition :: (a->Bool) -> RAList a -> (RAList a, RAList a)
 partition p xs = (filter p xs, filter (not . p) xs)
-
 
 
 
