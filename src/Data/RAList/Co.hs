@@ -1,9 +1,27 @@
-{-# LANGUAGE RankNTypes, DerivingVia, DeriveTraversable #-}
+{-# LANGUAGE RankNTypes, DerivingVia, DeriveTraversable, PatternSynonyms, ViewPatterns #-}
+{-# LANGUAGE BangPatterns,UndecidableInstances #-}
+
 module Data.RAList.Co(
   --module RA
-  lookup
+  RAList(Cons,Nil,RCons,(:|),(:.))
+  ,lookup
   , lookupM
-  , lookupWithDefault, (!!), lookupCC) where
+  , lookupWithDefault
+  , (!!)
+  , lookupCC
+  ,cons
+  ,uncons
+  --,traverse
+  --,foldr
+  --,foldl
+  --,foldl'
+  ,zip
+  ,zipWith
+  ,drop
+  ,take
+  ,module Data.Foldable
+  ,module Data.Traversable
+  ) where
 
 
 
@@ -27,6 +45,8 @@ import Prelude hiding (
 import  qualified Data.RAList as QRA
 import qualified Control.Monad.Fail as MF
 import Data.Foldable
+import Data.Traversable
+import GHC.Exts (IsList)
 
 
 
@@ -34,9 +54,64 @@ import Data.Foldable
 newtype RAList a = CoIndex {reindex :: QRA.RAList a }
     deriving stock (Traversable)
     deriving (Foldable,Functor) via QRA.RAList
-    deriving (Monoid,Semigroup,Eq,Show) via QRA.RAList a
+    deriving (Monoid,Semigroup,Eq,Show,IsList) via QRA.RAList a
+infixr 5 `Cons`
+pattern Cons :: forall a. a -> RAList a -> RAList a
+pattern Cons x  xs <- (uncons -> Just (x,  xs ) )
+    where Cons x xs =  (cons x  xs)
+
+pattern Nil :: forall a . RAList a
+pattern Nil = CoIndex QRA.Nil
+
+{-# COMPLETE Cons, Nil #-}
+infixl 5 `RCons`
+pattern RCons :: forall a. RAList a -> a -> RAList a
+pattern RCons xs x = Cons x xs
+
+{-# COMPLETE RCons, Nil #-}
+
+infixr 5 :|
+pattern (:|) :: forall a. a -> RAList a -> RAList a
+pattern x :| xs = Cons x xs
+{-# COMPLETE (:|), Nil #-}
+
+infixl 5 :.
+pattern (:.) :: forall a. RAList a -> a -> RAList a
+pattern xs :. x = Cons x xs
+{-# COMPLETE (:.), Nil #-}
+
+cons :: a -> RAList a -> RAList a
+cons x (CoIndex xs) = CoIndex $  QRA.cons x xs
+
+uncons :: RAList a -> Maybe (a, RAList a)
+uncons (CoIndex xs) = case QRA.uncons xs of
+                            Nothing -> Nothing
+                            Just(h,rest) -> Just (h,CoIndex rest)
 
 
+drop :: Word64 -> RAList a -> RAList a
+drop = \ ix (CoIndex ls)-> CoIndex $ QRA.drop ix ls
+
+take :: Word64 -> RAList a -> RAList a
+take = \ix (CoIndex ls ) -> CoIndex $ QRA.take ix ls
+
+zip :: RAList a -> RAList b -> RAList (a, b)
+zip = zipWith (,)
+
+zipWith :: (a -> b -> c ) -> RAList a -> RAList b -> RAList c
+zipWith = \f (CoIndex as) (CoIndex bs) ->
+              let
+                !alen = QRA.wLength as
+                !blen = QRA.wLength bs
+                in
+                  case compare alen blen of
+                    EQ -> CoIndex $ QRA.zipWith f  as bs
+                    GT {- alen > blen  -}->
+                      CoIndex $ QRA.zipWith f  (QRA.drop (alen - blen) as)
+                                               bs
+                    LT {- alen < blen -} ->
+                      CoIndex $ QRA.zipWith f as
+                                              (QRA.drop (blen - alen ) bs)
 
 (!!) :: RAList a -> Word64 -> a
 rls  !! n |  n <  0 = error "Data.RAList.Flip.!!: negative index"

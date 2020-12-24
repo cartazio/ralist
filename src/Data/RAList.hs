@@ -6,6 +6,7 @@
 {-# LANGUAGE PatternSynonyms,ViewPatterns #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE DeriveFoldable , DeriveTraversable#-}
+{-# LANGUAGE TypeFamilies #-}
 -- |
 -- A random-access list implementation based on Chris Okasaki's approach
 -- on his book \"Purely Functional Data Structures\", Cambridge University
@@ -18,7 +19,7 @@
 --
 module Data.RAList
    (
-     RAList(Nil,Cons)
+     RAList(Nil,Cons,(:|))
 
    -- * Basic functions
    --, empty
@@ -58,9 +59,9 @@ module Data.RAList
 
    , subsequences
    , permutations
-
-   -- * Reducing lists (folds)
 -}
+   -- * Reducing lists (folds)
+
    , foldl
    , foldl'
    , foldl1
@@ -260,6 +261,8 @@ import Numeric.Natural
 
 import GHC.Exts (oneShot)
 
+import qualified GHC.Exts as GE (IsList(..))
+
 infixl 9  !!
 infixr 5  `cons`, ++
 
@@ -305,6 +308,11 @@ instance Applicative RAList where
 instance Monad RAList where
     return = pure
     (>>=) = flip concatMap
+
+instance GE.IsList (RAList a) where
+  type Item (RAList a) = a
+  toList = toList
+  fromList = fromList
 
 instance MonadZip RAList where
   mzipWith = zipWith
@@ -401,10 +409,17 @@ instance Foldable Tree  where
 pattern Nil :: forall a. RAList a
 pattern Nil = RNil
 
+infixr 5 `Cons`
 pattern Cons :: forall a. a -> RAList a -> RAList a
 pattern Cons x xs <-( uncons -> Just(x,xs) )
  where Cons x xs = cons x xs
 {-# COMPLETE Nil,Cons #-}
+
+
+infixr 5 :|
+pattern (:|) :: forall a. a -> RAList a -> RAList a
+pattern x :| xs = Cons x xs
+{-# COMPLETE (:|), Nil #-}
 
 
 {-# INLINE CONLIKE [0]   cons #-}
@@ -753,7 +768,10 @@ zip :: RAList a -> RAList b -> RAList (a, b)
 zip = zipWith (,)
 
 zipWith :: forall a b c .  (a->b->c) -> RAList a -> RAList b -> RAList c
-zipWith f xs1 xs2 = case compare (wLength xs1) (wLength xs2) of
+zipWith f  = \ xs1 xs2 ->
+
+
+                  case compare (wLength xs1) (wLength xs2) of
                       EQ -> zipTop xs1 xs2
 
                       LT -> zipTop  xs1
