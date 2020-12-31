@@ -137,24 +137,31 @@ zipWith = \f (CoIndex as) (CoIndex bs) ->
                     LT {- alen < blen -} ->
                       CoIndex $ QRA.zipWith f as
                                               (QRA.drop (blen - alen ) bs)
-
+{-# INLINE (!!) #-}
 (!!) :: RAList a -> Word64 -> a
 rls  !! n |  n <  0 = error "Data.RAList.Flip.!!: negative index"
-                        | n >= (fromIntegral $   length rls)  = error "Data.RAList.Flip.!!: index too large"
-                        | otherwise =  reindex rls QRA.!! ((fromIntegral $length rls)  - n )
+                        | n >= (wLength  rls)  = error "Data.RAList.Flip.!!: index too large"
+                        | otherwise =  reindex rls QRA.!! ((wLength rls)  - n )
+{-# INLINE lookupWithDefault #-}
 lookupWithDefault :: forall t. t -> Word64 -> RAList t -> t
-lookupWithDefault = \ def ix tree -> QRA.lookupWithDefault def ((fromIntegral $ length tree) - ix ) $ reindex tree
+lookupWithDefault = \ def ix tree -> QRA.lookupWithDefault def ((wLength tree) - ix ) $ reindex tree
 
+
+{-# INLINE lookupM #-}
 lookupM :: forall a m . MF.MonadFail m =>  Word64 -> RAList a ->  m a
-lookupM = \ ix tree ->  QRA.lookupM  (reindex tree) ((fromIntegral $ length tree)  - ix)
+lookupM = \ ix tree ->  QRA.lookupM  (reindex tree) ((wLength tree)  - ix)
 
-lookup :: forall a. Word64 -> RAList a ->a
-lookup =  \ ix tree -> QRA.lookup  (reindex tree) ((fromIntegral $ length tree) - ix )
+{-# INLINE lookup #-}
+lookup :: forall a. Word64 -> RAList a -> Maybe a
+lookup =  \ ix tree -> QRA.lookup  (reindex tree) ((wLength tree) - ix )
 
+{-# INLINE lookupCC #-}
 lookupCC :: RAList a -> Word64 -> (a -> r) -> (String -> r) -> r
-lookupCC = \  tree ix f g ->  QRA.lookupCC (reindex tree) ((fromIntegral $ length tree) - ix ) f g
+lookupCC = \  tree ix f g ->  QRA.lookupCC (reindex tree) ((wLength tree) - ix ) f g
+
 {-# INLINE wLength #-}
 wLength:: RAList a -> Word64
 wLength = \ (CoIndex ls) -> QRA.wLength ls
+
 (++) :: RAList a -> RAList a -> RAList a
 (++) = (<>)
