@@ -61,12 +61,16 @@ module Data.RAList
    , subsequences
    , permutations
 -}
+
   -- * indexed operations
   ,imap
   ,itraverse
   ,ifoldMap
   ,ifoldl'
   ,ifoldr
+
+
+
    -- * Reducing lists (folds)
 
    , foldl
@@ -75,6 +79,7 @@ module Data.RAList
    , foldl1'
    , foldr
    , foldr1
+
 
    -- ** Special folds
 
@@ -275,6 +280,8 @@ import Data.Functor.WithIndex
 import Data.Traversable.WithIndex
 
 import Data.RAList.Internal
+
+
 infixl 9  !!
 infixr 5  `cons`, ++
 
