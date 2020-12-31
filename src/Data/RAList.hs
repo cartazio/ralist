@@ -7,6 +7,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE DeriveFoldable , DeriveTraversable#-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE MultiParamTypeClasses#-}
 -- |
 -- A random-access list implementation based on Chris Okasaki's approach
 -- on his book \"Purely Functional Data Structures\", Cambridge University
@@ -60,6 +61,12 @@ module Data.RAList
    , subsequences
    , permutations
 -}
+  -- * indexed operations
+  ,imap
+  ,itraverse
+  ,ifoldMap
+  ,ifoldl'
+  ,ifoldr
    -- * Reducing lists (folds)
 
    , foldl
@@ -263,6 +270,11 @@ import GHC.Exts (oneShot)
 
 import qualified GHC.Exts as GE (IsList(..))
 
+import Data.Foldable.WithIndex
+import Data.Functor.WithIndex
+import Data.Traversable.WithIndex
+
+import Data.RAList.Internal
 infixl 9  !!
 infixr 5  `cons`, ++
 
@@ -343,6 +355,11 @@ instance Traversable RAList where
 instance Foldable RAList  where
   null Nil  =  True
   null _ = False
+instance   TraversableWithIndex Word64 RAList where
+  {-# INLINE itraverse #-}
+  itraverse = \ f s -> snd $ runIndexing (traverse (\a -> Indexing (\i -> i `seq` (i + 1, f i a))) s) 0
+instance   FoldableWithIndex Word64 RAList where
+instance   FunctorWithIndex Word64 RAList where
 
   length = genericLength -- :)
 

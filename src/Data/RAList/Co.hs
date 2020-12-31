@@ -19,8 +19,23 @@ module Data.RAList.Co(
   ,zipWith
   ,drop
   ,take
-  ,module Data.Foldable
-  ,module Data.Traversable
+
+  -- * possibly useful reexports
+  ,foldl'
+  ,foldr
+  ,traverse
+  ,mapM
+  ,mapM_
+  ,ifoldMap
+  ,imap
+  ,itraverse
+  ,ifoldl'
+  ,ifoldr
+  ,imapM
+
+  ---
+  ,(++)
+  --,module Data.Traversable
   ) where
 
 
@@ -34,6 +49,9 @@ import Prelude hiding (
     drop, elem, splitAt, notElem, lookup, replicate, (!!), filter,
     zip, zipWith, unzip
     )
+import Data.Foldable.WithIndex
+import Data.Functor.WithIndex
+import Data.Traversable.WithIndex
 
 
 --import qualfieData.RAList  as RA hiding (
@@ -45,9 +63,11 @@ import Prelude hiding (
 import  qualified Data.RAList as QRA
 import qualified Control.Monad.Fail as MF
 import Data.Foldable
-import Data.Traversable
+import Data.Traversable()
 import GHC.Exts (IsList)
 
+infixl 9  !!
+infixr 5  `cons`, ++
 
 
 
@@ -55,6 +75,11 @@ newtype RAList a = CoIndex {reindex :: QRA.RAList a }
     deriving stock (Traversable)
     deriving (Foldable,Functor) via QRA.RAList
     deriving (Monoid,Semigroup,Eq,Show,IsList) via QRA.RAList a
+
+instance Applicative RAList where
+    pure = \x -> Cons x Nil
+    (<*>) = zipWith ($)
+
 infixr 5 `Cons`
 pattern Cons :: forall a. a -> RAList a -> RAList a
 pattern Cons x  xs <- (uncons -> Just (x,  xs ) )
@@ -128,3 +153,8 @@ lookup =  \ ix tree -> QRA.lookup  (reindex tree) ((fromIntegral $ length tree) 
 
 lookupCC :: RAList a -> Word64 -> (a -> r) -> (String -> r) -> r
 lookupCC = \  tree ix f g ->  QRA.lookupCC (reindex tree) ((fromIntegral $ length tree) - ix ) f g
+{-# INLINE wLength #-}
+wLength:: RAList a -> Word64
+wLength = \ (CoIndex ls) -> QRA.wLength ls
+(++) :: RAList a -> RAList a -> RAList a
+(++) = (<>)
