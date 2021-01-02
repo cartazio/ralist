@@ -4,10 +4,12 @@
 {-# LANGUAGE ExplicitForAll, RankNTypes #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE PatternSynonyms,ViewPatterns #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE DeriveFoldable , DeriveTraversable#-}
+{-# LANGUAGE ScopedTypeVariables, BangPatterns #-}
+{-# LANGUAGE DeriveFoldable , DeriveTraversable,DeriveGeneric#-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE MultiParamTypeClasses#-}
+{-# LANGUAGE MonadComprehensions #-}
+
 -- |
 -- A random-access list implementation based on Chris Okasaki's approach
 -- on his book \"Purely Functional Data Structures\", Cambridge University
@@ -268,10 +270,9 @@ import  Data.Foldable as F hiding (concat, concatMap)
 import qualified Control.Monad.Fail as MF
 
 import Control.Monad.Zip
-import Control.Applicative (liftA2)
 import Numeric.Natural
 
-import GHC.Exts (oneShot)
+--import GHC.Exts (oneShot)
 
 import qualified GHC.Exts as GE (IsList(..))
 
@@ -280,10 +281,31 @@ import Data.Functor.WithIndex
 import Data.Traversable.WithIndex
 
 import Data.RAList.Internal
+import Control.Applicative(Applicative(liftA2))
+
+import GHC.Generics(Generic,Generic1)
 
 
 infixl 9  !!
 infixr 5  `cons`, ++
+infixr 5 `Cons`
+infixr 5 :|
+
+pattern Nil :: forall a. RAList a
+pattern Nil = RNil
+
+
+pattern Cons :: forall a. a -> RAList a -> RAList a
+pattern Cons x xs <-( uncons -> Just(x,xs) )
+ where Cons x xs = cons x xs
+{-# COMPLETE Nil,Cons #-}
+
+
+pattern (:|) :: forall a. a -> RAList a -> RAList a
+pattern x :| xs = Cons x xs
+{-# COMPLETE (:|), Nil #-}
+
+
 
 -- A RAList is stored as a list of trees.  Each tree is a full binary tree.
 -- The sizes of the trees are monotonically increasing, except that the two
@@ -293,48 +315,6 @@ infixr 5  `cons`, ++
 --   [3,7], [1,3,7], [1,1,3,7], [3,3,7], [7,7], [15], ...
 -- (I.e., skew binary numbers.)
 
-
-#if !DEBUG
-instance (Show a) => Show (RAList a) where
-    showsPrec p xs = showParen (p >= 10) $ showString "fromList " . showsPrec 10 (toList xs)
-#endif
-
---instance (Read a) => Read (RAList a) where
---    readsPrec p = readParen (p > 10) $ \ r -> [(fromList xs, t) | ("fromList", s) <- lex r, (xs, t) <- reads s]
-
---instance (Ord a) => Ord (RAList a) where
---    xs <  ys        = toList xs <  toList ys
---    xs <= ys        = toList xs <= toList ys
---    xs >  ys        = toList xs >  toList ys
---    xs >= ys        = toList xs >= toList ys
---    xs `compare` ys = toList xs `compare` toList ys
-
-instance Monoid (RAList a) where
-    mempty  = Nil
-
-
-instance Semigroup (RAList a) where
-    {-# INLINE (<>) #-}
-    (<>) = (++)
-
---instance Functor RAList where
---    fmap f (RAList s skewlist) = RAList s (fmap f skewlist)
-
-instance Applicative RAList where
-    pure = \x -> Cons x Nil
-    (<*>) = zipWith ($)
-
-instance Monad RAList where
-    return = pure
-    (>>=) = flip concatMap
-
-instance GE.IsList (RAList a) where
-  type Item (RAList a) = a
-  toList = toList
-  fromList = fromList
-
-instance MonadZip RAList where
-  mzipWith = zipWith
 
 -- Special list type for (Word64, Tree a), i.e., Top a ~= [(Word64, Tree a)]
 data RAList a = RNil
@@ -350,8 +330,68 @@ data RAList a = RNil
 #if DEBUG
               , Show
 #endif
+              , Generic
+              , Generic1
               )
 
+
+#if !DEBUG
+instance (Show a) => Show (RAList a) where
+    showsPrec p xs = showParen (p >= 10) $ showString "fromList " . showsPrec 10 (toList xs)
+#endif
+
+--instance (Read a) => Read (RAList a) where
+--    readsPrec p = readParen (p > 10) $ \ r -> [(fromList xs, t) | ("fromList", s) <- lex r, (xs, t) <- reads s]
+
+instance (Ord a) => Ord (RAList a) where
+  --- this is kinda naive, but simple for now
+    xs <  ys        = toList xs <  toList ys
+    xs <= ys        = toList xs <= toList ys
+    xs >  ys        = toList xs >  toList ys
+    xs >= ys        = toList xs >= toList ys
+    xs `compare` ys = toList xs `compare` toList ys
+
+instance Monoid (RAList a) where
+    mempty  = Nil
+
+
+instance Semigroup (RAList a) where
+    {-# INLINE (<>) #-}
+    (<>) = (++)
+
+--instance Functor RAList where
+--    fmap f (RAList s skewlist) = RAList s (fmap f skewlist)
+
+--- lets just use  MonadComprehensions to write out the applictives
+instance Applicative RAList where
+    {-# INLINE pure #-}
+    pure = \x -> Cons x Nil
+    {-# INLINE (<*>) #-}
+    fs <*> xs = [f x | f <- fs, x <- xs]
+    {-# INLINE liftA2 #-}
+    liftA2 f xs ys = [f x y | x <- xs, y <- ys]
+    {-# INLINE (*>) #-}
+    xs *> ys  = [y | _ <- xs, y <- ys]
+
+
+instance Monad RAList where
+    return = pure
+    (>>=) = flip concatMap
+
+instance GE.IsList (RAList a) where
+  type Item (RAList a) = a
+  toList = toList
+  fromList = fromList
+
+instance MonadZip RAList where
+  mzipWith = zipWith
+  munzip = unzip
+
+{-# INLINE unzip #-}
+-- adapted from List definition in base
+unzip :: RAList (a,b) -> (RAList a,RAList b)
+unzip    =  foldr' (\(a,b) (!as,!bs) -> (a:| as,b:|bs)) (Nil,Nil)
+--unzip    =  foldr (\(a,b) ~(as,bs) -> (a:| as,b:|bs)) (Nil,Nil)
 
 --instance Traversable RAList where
     --{-# INLINE traverse #-} -- so that traverse can fuse
@@ -389,16 +429,22 @@ instance Foldable RAList  where
 
    --not sure if providing my own foldr is a good idea, but lets try for now : )
   --{-# INLINE [0] foldr #-}
+  {-
   foldr f z = go
           where
             go Nil     = z
             go (Cons y ys) = y `f` go ys
-  {-# INLINE toList #-}
+  -- {-# INLINE toList #-}
   toList = foldr (:) []
+  -}
 
   --{-# INLINE foldl' #-}
-  foldl' k z0 xs =
+{-
+ foldl' k z0 xs =
       foldr (\(v::a) (fn::b->b) -> oneShot (\(z::b) -> z `seq` fn (k z v))) (id :: b -> b) xs z0
+      -}
+
+
 --instance Functor Top where
 --    fmap _ Nil = Nil
 --    fmap f (Cons w t xs) = Cons w (fmap f t) (fmap f xs)
@@ -441,22 +487,6 @@ instance Foldable Tree  where
 --     fmap f (Node x l r) = Node (f x) (fmap f l) (fmap f r)
 
 
-pattern Nil :: forall a. RAList a
-pattern Nil = RNil
-
-infixr 5 `Cons`
-pattern Cons :: forall a. a -> RAList a -> RAList a
-pattern Cons x xs <-( uncons -> Just(x,xs) )
- where Cons x xs = cons x xs
-{-# COMPLETE Nil,Cons #-}
-
-
-infixr 5 :|
-pattern (:|) :: forall a. a -> RAList a -> RAList a
-pattern x :| xs = Cons x xs
-{-# COMPLETE (:|), Nil #-}
-
-
 {-# INLINE CONLIKE [0]   cons #-}
 -- | Complexity /O(1)/.
 cons :: a -> RAList a -> RAList a
@@ -479,7 +509,7 @@ cons x rlist  = RCons (1 + wLength rlist ) 1 (Leaf x) rlist
 --xs  ++ ys = foldr cons ys xs
 
 (++) :: RAList a -> RAList a-> RAList a
-{-# NOINLINE  (++) #-}    -- We want the RULE to fire first.
+--{-# NOINLINE  (++) #-}    -- We want the RULE to fire first.
                              -- It's recursive, so won't inline anyway,
                              -- but saying so is more explicit
 (++) Nil     ys = ys
@@ -623,6 +653,7 @@ foldl1' f xs | null xs = errorEmptyList "foldl1'"
 
 concat :: RAList (RAList a) -> RAList a
 concat = foldr (<>) Nil
+{-# INLINE  concat #-}
 -- {-# NOINLINE [1] concat #-}
 
 -- {-# RULES
@@ -636,7 +667,7 @@ concat = foldr (<>) Nil
 concatMap :: (a -> RAList b) -> RAList a -> RAList b
 --concatMap f = concat . fmap f
 concatMap f             =  foldr ((++) . f) Nil
-
+{-# INLINE concatMap #-}
 --{-# NOINLINE [1] concatMap #-}
 
 --{-# RULES
@@ -781,9 +812,9 @@ filter p  (Cons x xs)
 
 
 --{-# INLINE [0] filterFB #-} -- See Note [Inline FB functions] in ghc base
-filterFB :: (a -> b -> b) -> (a -> Bool) -> a -> b -> b
-filterFB c p x r | p x       = x `c` r
-                 | otherwise = r
+--filterFB :: (a -> b -> b) -> (a -> Bool) -> a -> b -> b
+--filterFB c p x r | p x       = x `c` r
+--                 | otherwise = r
 
 --- ANY late rule is problematic that uses cons :(
 -- {-# RULES
@@ -824,8 +855,7 @@ zipWith f  = \ xs1 xs2 ->
         zipTop (RCons tot1 w t1 xss1) (RCons _tot2 _ t2 xss2) = RCons tot1 w (zipTree t1 t2) (zipTop xss1 xss2)
         zipTop _ _ = error "Data.RAList.zipWith: impossible"
 
-unzip :: RAList (a, b) -> (RAList a, RAList b)
-unzip xs = (map fst xs, map snd xs)
+
 
 -- | Change element at the given index.
 -- Complexity /O(log n)/.

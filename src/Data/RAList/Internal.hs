@@ -2,7 +2,7 @@ module Data.RAList.Internal where
 
 import Data.Word
 -- cribbed from indexed-traversable, modified
--- by 'Control.Lens.Indexed.indexed'.
+-- originally in  'Control.Lens.Indexed.indexed'.
 newtype Indexing f a = Indexing { runIndexing :: Word64 -> (Word64, f a) }
 
 instance Functor f => Functor (Indexing f) where
