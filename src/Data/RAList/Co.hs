@@ -1,6 +1,8 @@
 {-# LANGUAGE RankNTypes, DerivingVia, DeriveTraversable, PatternSynonyms, ViewPatterns #-}
 {-# LANGUAGE BangPatterns,UndecidableInstances,MultiParamTypeClasses #-}
-{-# LANGUAGE MonadComprehensions #-}
+{-# LANGUAGE MonadComprehensions,RoleAnnotations, QuantifiedConstraints #-}
+{-# LANGUAGE Trustworthy, MagicHash#-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Data.RAList.Co(
   --module RA
@@ -27,6 +29,7 @@ module Data.RAList.Co(
   ,traverse
   ,mapM
   ,mapM_
+
   ,ifoldMap
   ,imap
   ,itraverse
@@ -34,6 +37,15 @@ module Data.RAList.Co(
   ,ifoldr
   ,imapM
 
+
+ , filter
+ , partition
+ , mapMaybe
+ , catMaybes
+ , wither
+
+
+ ,elem
   ---
   ,(++)
   --,module Data.Traversable
@@ -76,6 +88,10 @@ import GHC.Generics(Generic,Generic1)
 
 import Control.Applicative(Applicative(liftA2))
 
+import Data.Type.Coercion
+
+import Unsafe.Coerce
+
 
 infixl 9  !!
 infixr 5  `cons`, ++
@@ -106,7 +122,7 @@ pattern xs :. x = Cons x xs
 {-# COMPLETE (:.), Nil #-}
 
 
-
+type role RAList representational
 newtype RAList a = CoIndex {reindex :: QRA.RAList a }
     deriving stock (Traversable)
     deriving (Foldable,Functor,Generic1) via QRA.RAList
@@ -119,6 +135,8 @@ instance   TraversableWithIndex Word64 RAList where
   itraverse = \ f s -> snd $ runIndexing
                 ( forwards $  traverse (\a -> Backwards $ Indexing (\i -> i `seq` (i + 1, f i a))) s) 0
 -- TODO; benchmark this vs counting downn from the start
+
+
 
 instance   FoldableWithIndex Word64 RAList where
 instance   FunctorWithIndex Word64 RAList where
@@ -239,3 +257,37 @@ wLength = \ (CoIndex ls) -> QRA.wLength ls
 
 (++) :: RAList a -> RAList a -> RAList a
 (++) = (<>)
+
+
+
+partition :: (a->Bool) -> RAList a -> (RAList a, RAList a)
+partition = \ f  ls -> (case  QRA.partition f $ coerce ls of (la, lb ) -> (coerce la , coerce lb)   )
+
+filter :: forall a . (a -> Bool) -> RAList a -> RAList a
+filter = \ f ls ->  coerce $ QRA.filter f (coerce ls )
+
+
+catMaybes :: RAList (Maybe a) -> RAList a
+catMaybes = \ls -> coerce $ (QRA.catMaybes $ (coerce ::  RAList (Maybe a) -> QRA.RAList (Maybe a)) ls)
+
+
+wither :: forall a b f . (Applicative f) =>
+        (a -> f (Maybe b)) -> RAList a -> f (RAList b)
+wither = \f la ->    coerceWith coerceThroughFunctor     $ QRA.wither f $ coerce la
+---
+-- applicatives / functors can be coerced under, i have spoken
+{-
+for context, i otherwise need to do the following :
+wither :: forall a b f . (Applicative f, (forall c d .  Coercible c d => Coercible (f c) (f d))  ) =>
+        (a -> f (Maybe b)) -> RAList a -> f (RAList b)
+wither = \f la ->    coerce     $ QRA.wither f $ coerce la
+-}
+{-#INLINE coerceThroughFunctor #-}
+coerceThroughFunctor :: forall a b f.  (Coercible a b, Functor f) => (Coercion (f a) (f b))
+coerceThroughFunctor = (unsafeCoerce (Coercion :: Coercion a b  )) :: (Coercion (f a) (f b))
+
+---
+
+mapMaybe :: forall a b .  (a -> Maybe b) -> RAList a -> RAList b
+mapMaybe =  \f la ->    coerce     $ QRA.mapMaybe f $ coerce la
+

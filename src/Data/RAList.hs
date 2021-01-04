@@ -8,7 +8,8 @@
 {-# LANGUAGE DeriveFoldable , DeriveTraversable,DeriveGeneric#-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE MultiParamTypeClasses#-}
-{-# LANGUAGE MonadComprehensions #-}
+{-# LANGUAGE MonadComprehensions,RoleAnnotations #-}
+{-# LANGUAGE Trustworthy#-}
 
 -- |
 -- A random-access list implementation based on Chris Okasaki's approach
@@ -155,6 +156,9 @@ module Data.RAList
 -}
    , filter
    , partition
+   , mapMaybe
+   , catMaybes
+   , wither
 
 {-RA
    , elemIndex
@@ -316,6 +320,8 @@ pattern x :| xs = Cons x xs
 -- (I.e., skew binary numbers.)
 
 
+type role RAList representational
+
 -- Special list type for (Word64, Tree a), i.e., Top a ~= [(Word64, Tree a)]
 data RAList a = RNil
                 | RCons {-# UNPACK #-}  !Word64 -- total number of elements, aka sum of subtrees
@@ -462,6 +468,7 @@ genericLength = \ra -> case ra of RNil ->  0 ; (RCons tot _trtot _tree _rest) ->
 wLength :: RAList a -> Word64
 wLength = genericLength
 
+type role Tree representational
 data Tree a
      = Leaf a
      | Node a (Tree a) (Tree a)
@@ -486,7 +493,8 @@ instance Foldable Tree  where
 --     fmap f (Leaf x)     = Leaf (f x)
 --     fmap f (Node x l r) = Node (f x) (fmap f l) (fmap f r)
 
-
+-- todo audit inline pragmas for `cons`
+-- also, i think we can say that cons is whnf strict in its second argument, lazy in the first?
 {-# INLINE CONLIKE [0]   cons #-}
 -- | Complexity /O(1)/.
 cons :: a -> RAList a -> RAList a
@@ -666,6 +674,7 @@ concat = foldr (<>) Nil
 
 concatMap :: (a -> RAList b) -> RAList a -> RAList b
 --concatMap f = concat . fmap f
+-- TODO: should this and others be foldr' ?
 concatMap f             =  foldr ((++) . f) Nil
 {-# INLINE concatMap #-}
 --{-# NOINLINE [1] concatMap #-}
@@ -801,27 +810,59 @@ genericSplitAt siz ls | siz <=0 = (Nil,ls)
 lookupL :: (Eq a) => a -> RAList (a, b) -> Maybe b
 lookupL x xys = Prelude.lookup x (toList xys)
 
+-- catMaybes ls = mapMaybe Just ls
+catMaybes :: RAList (Maybe a) -> RAList a
+catMaybes = \  ls-> foldr' (\ a bs -> maybe bs (:| bs) a ) Nil  ls
 
--- {-# NOINLINE [1] filter #-}
-filter :: (a -> Bool) -> RAList a -> RAList a
-filter _p Nil    = Nil
-filter p  (Cons x xs)
-  | p x         = x `Cons` filter p xs
-  | otherwise      = filter p xs
-
+wither :: forall a b f . Applicative f => (a -> f (Maybe b)) -> RAList a -> f (RAList b)
+wither f ls =  foldr ((\ a fbs -> liftA2 (maybe id (cons)) (f a) fbs))  (pure Nil ) ls
 
 
---{-# INLINE [0] filterFB #-} -- See Note [Inline FB functions] in ghc base
---filterFB :: (a -> b -> b) -> (a -> Bool) -> a -> b -> b
---filterFB c p x r | p x       = x `c` r
---                 | otherwise = r
+-- mapMaybe f ls ===  foldr' (\ a bs -> maybe bs (\b -> b :| bs ) $! f a) ls
+mapMaybe :: forall a b .  (a -> Maybe b) -> RAList a -> RAList b
+mapMaybe = \ fm ls ->
+    let
+        go :: RAList a -> RAList b
+        go Nil = Nil
+        go (a:| as) | Just b <- fm a =  b :| go as
+                    | otherwise      = go as
+        in
+        go ls
+
+-- wither f ls == foldr
+
+
+{-# NOINLINE [1] filter #-}
+filter :: forall a . (a -> Bool) -> RAList a -> RAList a
+filter = \ f   ls ->
+  let go :: RAList a  -> RAList a
+      go Nil = Nil
+      go (a :| as) = if f a
+                       then a :| go as
+                       else go as
+    in
+     go ls
+
+
+--filter _p Nil    = Nil
+--filter p  (Cons x xs)
+--  | p x         = x `Cons` filter p xs
+--  | otherwise      = filter p xs
+
+
+
+{-# INLINE [0] filterFB #-} -- See Note [Inline FB functions] in ghc base
+filterFB :: (a -> b -> b) -> (a -> Bool) -> a -> b -> b
+filterFB c p x r | p x       = x `c` r
+                 | otherwise = r
 
 --- ANY late rule is problematic that uses cons :(
--- {-# RULES
--- "RA/filter"     [~1] forall p xs.  filter p xs = build (\c n -> foldr (filterFB c p) n xs)
--- "RA/filterList" [1]  forall p.     foldr (filterFB (cons) p) RNil = filter p
--- "RA/filterFB"        forall c p q. filterFB (filterFB c p) q = filterFB c (\x -> q x && p x)
---  #-}
+
+{-# RULES
+"RA/filter"     [~1] forall p xs.  filter p xs = build (\c n -> foldr (filterFB c p) n xs)
+"RA/filterList" [1]  forall p.     foldr (filterFB (cons) p) RNil = filter p
+"RA/filterFB"        forall c p q. filterFB (filterFB c p) q = filterFB c (\x -> q x && p x)
+ #-}
 
 
 partition :: (a->Bool) -> RAList a -> (RAList a, RAList a)
