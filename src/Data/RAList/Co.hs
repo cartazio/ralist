@@ -7,26 +7,33 @@
 module Data.RAList.Co(
   --module RA
   RAList(Cons,Nil,RCons,(:|),(:.))
+
+  -- * lookups
   ,lookup
   , lookupM
   , lookupWithDefault
   , (!!)
   , lookupCC
+  -- * function form of constructing  and destructing
   ,cons
   ,uncons
   --,traverse
   --,foldr
   --,foldl
   --,foldl'
+
+-- * zipping
   ,zip
   ,zipWith
 
   --
-  ,drop
-  ,take
-  ,splitAt
+-- * Extracting sublists
+   , take
+   , drop
 
-  -- * from traverse and foldable
+   , splitAt
+
+  -- * from traverse and foldable and ilk
   ,foldl'
   ,foldr
   ,traverse
@@ -35,6 +42,7 @@ module Data.RAList.Co(
 
   ,unfoldr
 
+  -- * indexed folds etc
   ,ifoldMap
   ,imap
   ,itraverse
@@ -42,20 +50,21 @@ module Data.RAList.Co(
   ,ifoldr
   ,imapM
 
-
+-- * filter and friends
  , filter
  , partition
  , mapMaybe
  , catMaybes
  , wither
 
+-- * foldable cousin
 
  ,elem
 
 
-    -- ** The \"@generic@\" operations
-   -- | The prefix \`@generic@\' indicates an overloaded function that
-   -- is a generalized version of a "Prelude" function.
+-- * The \"@generic@\" operations
+-- | The prefix \`@generic@\' indicates an overloaded function that
+-- is a generalized version of a "Prelude" function.
 
    , genericLength
    , genericTake
@@ -64,12 +73,12 @@ module Data.RAList.Co(
    , genericIndex
    , genericReplicate
 
-   -- * Update
+-- * Update
    , update
    , adjust
-  --- * append
+-- * Append
   ,(++)
-  --,module Data.Traversable
+
   ) where
 
 
@@ -117,26 +126,32 @@ import Unsafe.Coerce
 infixl 9  !!
 infixr 5  `cons`, ++
 
+-- | Cons pattern, a la ':' for list, prefix
 infixr 5 `Cons`
 pattern Cons :: forall a. a -> RAList a -> RAList a
 pattern Cons x  xs <- (uncons -> Just (x,  xs ) )
     where Cons x xs =  (cons x  xs)
 
+
+-- | the '[] analogue
 pattern Nil :: forall a . RAList a
 pattern Nil = CoIndex QRA.Nil
 
 {-# COMPLETE Cons, Nil #-}
+-- | just 'Cons' but flipped arguments
 infixl 5 `RCons`
 pattern RCons :: forall a. RAList a -> a -> RAList a
 pattern RCons xs x = Cons x xs
 
 {-# COMPLETE RCons, Nil #-}
 
+-- | infix 'Cons', aka ':', but for RAlist
 infixr 5 :|
 pattern (:|) :: forall a. a -> RAList a -> RAList a
 pattern x :| xs = Cons x xs
 {-# COMPLETE (:|), Nil #-}
 
+-- | infix 'RCons'
 infixl 5 :.
 pattern (:.) :: forall a. RAList a -> a -> RAList a
 pattern xs :. x = Cons x xs
@@ -336,7 +351,7 @@ genericIndex  x i  = QRA.genericIndex (reindex x) i
 genericReplicate :: Integral n => n -> a -> RAList a
 genericReplicate i v = coerce $ genericReplicate i v
 
-   -- * Update
+
 update ::  Word64 -> a -> RAList a -> RAList a
 update i v l = adjust (const v) i l
 
