@@ -20,15 +20,20 @@ module Data.RAList.Co(
   --,foldl'
   ,zip
   ,zipWith
+
+  --
   ,drop
   ,take
+  ,splitAt
 
-  -- * possibly useful reexports
+  -- * from traverse and foldable
   ,foldl'
   ,foldr
   ,traverse
   ,mapM
   ,mapM_
+
+  ,unfoldr
 
   ,ifoldMap
   ,imap
@@ -46,7 +51,23 @@ module Data.RAList.Co(
 
 
  ,elem
-  ---
+
+
+    -- ** The \"@generic@\" operations
+   -- | The prefix \`@generic@\' indicates an overloaded function that
+   -- is a generalized version of a "Prelude" function.
+
+   , genericLength
+   , genericTake
+   , genericDrop
+   , genericSplitAt
+   , genericIndex
+   , genericReplicate
+
+   -- * Update
+   , update
+   , adjust
+  --- * append
   ,(++)
   --,module Data.Traversable
   ) where
@@ -196,6 +217,12 @@ drop = \ ix (CoIndex ls)-> CoIndex $ QRA.drop ix ls
 take :: Word64 -> RAList a -> RAList a
 take = \ix (CoIndex ls ) -> CoIndex $ QRA.take ix ls
 
+--- being lazy? yes :)
+splitAt :: Word64 -> RAList a -> (RAList a, RAList a )
+splitAt = genericSplitAt
+
+
+
 zip :: RAList a -> RAList b -> RAList (a, b)
 zip = zipWith (,)
 
@@ -291,3 +318,32 @@ coerceThroughFunctor = (unsafeCoerce (Coercion :: Coercion a b  )) :: (Coercion 
 mapMaybe :: forall a b .  (a -> Maybe b) -> RAList a -> RAList b
 mapMaybe =  \f la ->    coerce     $ QRA.mapMaybe f $ coerce la
 
+genericLength :: forall a w . Integral w =>RAList a -> w
+genericLength x = QRA.genericLength $ reindex x
+
+genericTake :: forall a n .  Integral n => n -> RAList a -> RAList a
+genericTake i x = coerce $ QRA.genericTake i $  (coerce :: RAList a -> QRA.RAList a)  x
+
+genericDrop :: Integral n => n -> RAList a -> RAList a
+genericDrop  i x  = coerce $  QRA.genericDrop  i $ (coerce :: RAList a -> QRA.RAList a) x
+
+genericSplitAt :: Integral n => n  -> RAList a -> (RAList a, RAList a)
+genericSplitAt i x =  case QRA.genericSplitAt i $ reindex x of (a,b) -> (coerce a, coerce b)
+
+genericIndex :: Integral n => RAList a -> n -> a
+genericIndex  x i  = QRA.genericIndex (reindex x) i
+
+genericReplicate :: Integral n => n -> a -> RAList a
+genericReplicate i v = coerce $ genericReplicate i v
+
+   -- * Update
+update ::  Word64 -> a -> RAList a -> RAList a
+update i v l = adjust (const v) i l
+
+
+adjust :: forall a . (a->a) -> Word64 -> RAList a -> RAList a
+adjust f i l =  coerce $ adjust f i $ coerce l
+
+
+unfoldr :: (b -> Maybe (a, b)) -> b -> RAList a
+unfoldr f init = coerce $ QRA.unfoldr f init
