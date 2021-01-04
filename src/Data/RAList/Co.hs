@@ -9,11 +9,12 @@ module Data.RAList.Co(
   RAList(Cons,Nil,RCons,(:|),(:.))
 
   -- * lookups
-  ,lookup
+  , lookup
   , lookupM
   , lookupWithDefault
   , (!!)
   , lookupCC
+
   -- * function form of constructing  and destructing
   ,cons
   ,uncons
@@ -25,12 +26,13 @@ module Data.RAList.Co(
 -- * zipping
   ,zip
   ,zipWith
+  ,unzip
 
   --
 -- * Extracting sublists
    , take
    , drop
-
+   , replicate
    , splitAt
 
   -- * from traverse and foldable and ilk
@@ -57,9 +59,11 @@ module Data.RAList.Co(
  , catMaybes
  , wither
 
--- * foldable cousin
+-- * foldable cousins
 
  ,elem
+ ,length
+ ,wLength
 
 
 -- * The \"@generic@\" operations
@@ -78,6 +82,9 @@ module Data.RAList.Co(
    , adjust
 -- * Append
   ,(++)
+-- * list conversion
+, fromList
+, toList
 
   ) where
 
@@ -126,7 +133,7 @@ import Unsafe.Coerce
 infixl 9  !!
 infixr 5  `cons`, ++
 
--- | Cons pattern, a la ':' for list, prefix
+-- | Cons pattern, à la ':' for list, prefix
 infixr 5 `Cons`
 pattern Cons :: forall a. a -> RAList a -> RAList a
 pattern Cons x  xs <- (uncons -> Just (x,  xs ) )
@@ -151,11 +158,16 @@ pattern (:|) :: forall a. a -> RAList a -> RAList a
 pattern x :| xs = Cons x xs
 {-# COMPLETE (:|), Nil #-}
 
--- | infix 'RCons'
+-- | infix 'RCons', aka flipped ':'
 infixl 5 :.
 pattern (:.) :: forall a. RAList a -> a -> RAList a
 pattern xs :. x = Cons x xs
 {-# COMPLETE (:.), Nil #-}
+
+
+fromList :: [a] -> RAList a
+fromList = foldr Cons Nil
+
 
 
 type role RAList representational
@@ -237,6 +249,8 @@ splitAt :: Word64 -> RAList a -> (RAList a, RAList a )
 splitAt = genericSplitAt
 
 
+replicate :: Word64 -> a -> RAList a
+replicate = genericReplicate
 
 zip :: RAList a -> RAList b -> RAList (a, b)
 zip = zipWith (,)

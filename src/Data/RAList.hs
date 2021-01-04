@@ -295,16 +295,18 @@ infixr 5  `cons`, ++
 infixr 5 `Cons`
 infixr 5 :|
 
+-- | our '[]' by another name
 pattern Nil :: forall a. RAList a
 pattern Nil = RNil
 
-
+-- | Constructor notation ':'
 pattern Cons :: forall a. a -> RAList a -> RAList a
 pattern Cons x xs <-( uncons -> Just(x,xs) )
  where Cons x xs = cons x xs
 {-# COMPLETE Nil,Cons #-}
 
 
+-- | like ':' but for RAList
 pattern (:|) :: forall a. a -> RAList a -> RAList a
 pattern x :| xs = Cons x xs
 {-# COMPLETE (:|), Nil #-}
