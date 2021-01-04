@@ -20,7 +20,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ghc:  ['8.6.5', '8.8.3','8.10.2','latest'] # ['7.0.4','7.2.2','7.4.2','7.6.3','7.8.4', 7.10.3 ..  '8.0.2','8.2.2','8.4.4',
+        ghc:  ['8.6.5', '8.8.3','8.10.3','latest'] # ['7.0.4','7.2.2','7.4.2','7.6.3','7.8.4', 7.10.3 ..  '8.0.2','8.2.2','8.4.4',
         # needs 7.10 onwards for applicative in base, truly we are in a more civilized era
         cabal: ['3.2.0.0'] # ,'latest'
         os: [ubuntu-latest] #, macOS-latest, windows-latest]
@@ -32,7 +32,7 @@ jobs:
             ghc: latest
             cabal: latest
           - os: windows-latest
-            ghc: '8.10.2.2'
+            ghc: '8.10.3'
             cabal: '3.2.0.0'
             # 8.10.2.2 is a bug fix for a bad windows packaging
             # i hope that actions/setup-haskell upstream does a fix to ghc latest to point to this
