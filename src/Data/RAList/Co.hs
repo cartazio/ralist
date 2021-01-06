@@ -140,7 +140,7 @@ pattern Cons x  xs <- (uncons -> Just (x,  xs ) )
     where Cons x xs =  (cons x  xs)
 
 
--- | the '[] analogue
+-- | the '[]' analogue
 pattern Nil :: forall a . RAList a
 pattern Nil = CoIndex QRA.Nil
 
@@ -152,29 +152,48 @@ pattern RCons xs x = Cons x xs
 
 {-# COMPLETE RCons, Nil #-}
 
--- | infix 'Cons', aka ':', but for RAlist
+-- | infix 'Cons', aka : , but for RAlist
 infixr 5 :|
 pattern (:|) :: forall a. a -> RAList a -> RAList a
 pattern x :| xs = Cons x xs
 {-# COMPLETE (:|), Nil #-}
 
--- | infix 'RCons', aka flipped ':'
+-- | infix 'RCons', aka flipped :
 infixl 5 :.
 pattern (:.) :: forall a. RAList a -> a -> RAList a
 pattern xs :. x = Cons x xs
 {-# COMPLETE (:.), Nil #-}
 
 
+-- | friendly list to RAList conversion
 fromList :: [a] -> RAList a
 fromList = foldr Cons Nil
 
 
 
-type role RAList representational
+
+-- | This type (@'RAList' a@) indexes back to front, i.e. for nonempty lists @l@ : head of l == (l @'!!' ('genericLength'@ l - 1 ))@
+-- and @last l == l '!!' 0 @.   RAList also has a logarithmic complexity 'drop' operation, and different semantics for 'zip' and related operations
+--
+--
+-- for complete pattern matching, you can use any pair of:
+--
+-- -  ':|' , 'Nil'
+--
+-- -  ':.' , 'Nil'
+--
+-- - 'Cons' , 'Nil'
+--
+-- - 'RCons' , 'Nil'
+--
+-- The Reversed order pattern synonyms are provided
+-- to enable certain codes to match pen/paper notation for ordered variable environments
 newtype RAList a = CoIndex {reindex :: QRA.RAList a }
     deriving stock (Traversable)
     deriving (Foldable,Functor,Generic1) via QRA.RAList
     deriving (Monoid,Semigroup,Eq,Ord,Show,IsList,Generic) via QRA.RAList a
+
+type role RAList representational
 
 --- > itraverse (\ix _val -> Id.Identity ix) $ ([(),(),(),()]:: Co.RAList ())
 --- Identity (fromList [3,2,1,0])
@@ -229,29 +248,38 @@ instance MonadZip RAList where
   mzipWith = zipWith
   munzip = unzip
 
+-- | implementation underlying smart constructor used by pattern synonyms
 cons :: a -> RAList a -> RAList a
 cons x (CoIndex xs) = CoIndex $  QRA.cons x xs
 
+
+-- | how matching is implemented
 uncons :: RAList a -> Maybe (a, RAList a)
 uncons (CoIndex xs) = case QRA.uncons xs of
                             Nothing -> Nothing
                             Just(h,rest) -> Just (h,CoIndex rest)
 
 
+-- double check what the complexity is
+-- | @'drop' i l@ drops the first @i@ elments, @O(log i)@  complexity,
 drop :: Word64 -> RAList a -> RAList a
 drop = \ ix (CoIndex ls)-> CoIndex $ QRA.drop ix ls
 
+-- | @'take' i l@, keeps the first @i@ elements, @O(i)@ complexity
 take :: Word64 -> RAList a -> RAList a
 take = \ix (CoIndex ls ) -> CoIndex $ QRA.take ix ls
 
 --- being lazy? yes :)
+-- | performs both drop and take
 splitAt :: Word64 -> RAList a -> (RAList a, RAList a )
 splitAt = genericSplitAt
 
 
+-- | @'replicate' n a @ makes a RAList with n values of a
 replicate :: Word64 -> a -> RAList a
 replicate = genericReplicate
 
+-- | list zip,
 zip :: RAList a -> RAList b -> RAList (a, b)
 zip = zipWith (,)
 
