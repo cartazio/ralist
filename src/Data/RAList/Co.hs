@@ -103,6 +103,8 @@ import Data.Foldable.WithIndex
 import Data.Functor.WithIndex
 import Data.Traversable.WithIndex
 
+-- this is used to ... flip around the indexing
+--- need to check that i'm doing it correctly of course
 import Control.Applicative.Backwards
 
 import Data.RAList.Internal
@@ -129,6 +131,7 @@ import Data.Type.Coercion
 
 import Unsafe.Coerce
 
+import Control.DeepSeq
 
 infixl 9  !!
 infixr 5  `cons`, ++
@@ -190,13 +193,15 @@ fromList = foldr Cons Nil
 -- to enable certain codes to match pen/paper notation for ordered variable environments
 newtype RAList a = CoIndex {reindex :: QRA.RAList a }
     deriving stock (Traversable)
-    deriving (Foldable,Functor,Generic1) via QRA.RAList
-    deriving (Monoid,Semigroup,Eq,Ord,Show,IsList,Generic) via QRA.RAList a
+    --- should think about direction of traversal
+    deriving (Foldable,Functor,Generic1,NFData1) via QRA.RAList
+    deriving (Monoid,Semigroup,Eq,Ord,Show,IsList,Generic,NFData) via QRA.RAList a
 
 type role RAList representational
 
 --- > itraverse (\ix _val -> Id.Identity ix) $ ([(),(),(),()]:: Co.RAList ())
 --- Identity (fromList [3,2,1,0])
+--- but should this be done right to left or left to right??
 instance   TraversableWithIndex Word64 RAList where
   {-# INLINE itraverse #-}
   itraverse = \ f s -> snd $ runIndexing

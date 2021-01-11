@@ -30,7 +30,10 @@ source-repository head
 Library
   Build-Depends:
     base >= 4.12 && < 6
-    ,indexed-traversable ^>= 0.1, transformers ^>= 0.5
+    ,indexed-traversable ^>= 0.1
+    , transformers ^>= 0.5
+    -- only needed for one spot in .co
+    ,deepseq ^>= 1.4.4.0
   Exposed-modules:
        Data.RAList
        ,Data.RAList.Co

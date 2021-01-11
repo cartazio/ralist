@@ -1,5 +1,5 @@
 {-# LANGUAGE CPP #-}
-{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DeriveDataTypeable,DeriveAnyClass,DerivingVia #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE ExplicitForAll, RankNTypes #-}
 {-# LANGUAGE KindSignatures #-}
@@ -290,6 +290,8 @@ import Control.Applicative(Applicative(liftA2))
 import GHC.Generics(Generic,Generic1)
 
 
+import Control.DeepSeq
+
 infixl 9  !!
 infixr 5  `cons`, ++
 infixr 5 `Cons`
@@ -340,6 +342,8 @@ data RAList a = RNil
 #endif
               , Generic
               , Generic1
+              ,NFData
+              ,NFData1
               )
 
 
@@ -479,6 +483,10 @@ data Tree a
         ,Data
         ,Typeable
         ,Functor
+        ,NFData
+        ,NFData1
+        ,Generic
+        ,Generic1
         ,Traversable
 #if DEBUG
         , Show
