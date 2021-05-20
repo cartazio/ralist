@@ -418,6 +418,8 @@ instance   TraversableWithIndex Word64 RAList where
 instance   FoldableWithIndex Word64 RAList where
 instance   FunctorWithIndex Word64 RAList where
 
+-- TODO: look into ways to make the toList more efficient if needed
+
 instance Foldable RAList  where
   {-# INLINE null#-}
   null = \ x -> case x of Nil -> True ; _ -> False
@@ -931,17 +933,8 @@ adjust f n s | n <  0 = error "Data.RAList.adjust: negative index"
                               | otherwise = Node x l (adjt (j-1-w) (w `quot` 2) r)
         adjt _ _ _ = error "Data.RAList.adjust: impossible"
 
--- XXX Make this a good producer
--- | Complexity /O(n)/.
---toList :: RAList a -> [a]
---toList = foldr (:) []
---toList ra = tops ra []
---  where flat (Leaf x)     a = x : a
---        flat (Node x l r) a = x : flat l (flat r a)
---        tops RNil r = r
---        tops (RCons _tot _ t xs) r = flat t (tops xs r)
 
--- XXX Use number system properties to make this more efficient.
+
 -- | Complexity /O(n)/.
 fromList :: [a] -> RAList a
 fromList = Prelude.foldr Cons Nil
