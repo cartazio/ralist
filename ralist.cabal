@@ -1,6 +1,6 @@
 cabal-version:    3.0
 Name:           ralist
-Version:        0.3.0.0
+Version:        0.4.0.0
 License:        BSD-3-Clause
 license-file: LICENSE
 Author:         Lennart Augustsson, Carter Schonwald

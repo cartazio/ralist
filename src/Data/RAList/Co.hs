@@ -333,8 +333,8 @@ lookupM :: forall a m . MF.MonadFail m =>  Word64 -> RAList a ->  m a
 lookupM = \ ix tree ->  QRA.lookupM  (reindex tree) ((wLength tree)  - ix)
 
 {-# INLINE lookup #-}
-lookup :: forall a. Word64 -> RAList a -> Maybe a
-lookup =  \ ix tree -> QRA.lookup  (reindex tree) ((wLength tree) - ix )
+lookup :: forall a. RAList a -> Word64 ->  Maybe a
+lookup =  \ (CoIndex tree) ix -> QRA.lookup  tree  ((QRA.wLength tree) - ix )
 
 {-# INLINE lookupCC #-}
 lookupCC :: RAList a -> Word64 -> (a -> r) -> (String -> r) -> r

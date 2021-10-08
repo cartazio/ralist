@@ -1,3 +1,8 @@
+# 0.4.0.0
+
+* flipped the argument order for `Co.lookup` to be consistent between
+both flavors of RAList apis
+
 # 0.3.0.0
 * changed type from
   `lookupM :: forall (m :: * -> *) a. Monad m => Word64 -> Top a -> m a` to `lookupM :: forall a. Word64 -> Top a -> Either String a`
