@@ -1,8 +1,10 @@
 module Main where
 
 import Data.RAList
+import qualified Data.RAList.Co as Co
 import Test.Hspec
 import Control.Exception (evaluate)
+import Data.Word (Word64)
 
 import Prelude hiding (
     (++), head, last, tail, init, null, length, map, reverse,
@@ -737,4 +739,119 @@ main = hspec $ do
       toList (fromList [1..9]) `shouldBe` ([1..9] :: [Int])
     it "converts an empty list" $ do
       toList (empty) `shouldBe` ([] :: [Int])
+
+  -- ═══════════════════════════════════════════════════════
+  -- Data.RAList.Co tests (reversed indexing)
+  -- ═══════════════════════════════════════════════════════
+
+  let co3 = Co.fromList [1,2,3] :: Co.RAList Int
+      co9 = Co.fromList [1..9] :: Co.RAList Int
+      coEmpty = Co.Nil :: Co.RAList Int
+
+  describe "Co.cons/uncons" $ do
+    it "cons adds to an empty list" $
+      Co.cons 1 coEmpty `shouldBe` Co.fromList [1 :: Int]
+    it "cons then uncons roundtrips" $
+      Co.uncons (Co.cons 42 co3) `shouldBe` Just (42 :: Int, co3)
+    it "uncons empty is Nothing" $
+      Co.uncons coEmpty `shouldBe` (Nothing :: Maybe (Int, Co.RAList Int))
+
+  describe "Co.toList/fromList" $ do
+    it "roundtrips length 3" $
+      Co.toList co3 `shouldBe` [1,2,3 :: Int]
+    it "roundtrips length 9" $
+      Co.toList co9 `shouldBe` [1..9 :: Int]
+    it "roundtrips empty" $
+      Co.toList coEmpty `shouldBe` ([] :: [Int])
+
+  describe "Co.(!!) reversed indexing" $ do
+    -- Co indexes from the back: head is at (length-1), last is at 0
+    it "!! 0 gives last element" $
+      co9 Co.!! 0 `shouldBe` (9 :: Int)
+    it "!! (length-1) gives first element" $
+      co9 Co.!! 8 `shouldBe` (1 :: Int)
+    it "!! 4 gives middle element" $
+      co9 Co.!! 4 `shouldBe` (5 :: Int)
+
+  describe "Co.lookup" $ do
+    it "lookup 0 gives last" $
+      Co.lookup co9 0 `shouldBe` Just (9 :: Int)
+    it "lookup (length-1) gives first" $
+      Co.lookup co9 8 `shouldBe` Just (1 :: Int)
+    it "lookup out of bounds gives Nothing" $
+      Co.lookup co9 99 `shouldBe` (Nothing :: Maybe Int)
+
+  describe "Co.length" $ do
+    it "length 9" $
+      Co.wLength co9 `shouldBe` (9 :: Word64)
+    it "length empty" $
+      Co.wLength coEmpty `shouldBe` (0 :: Word64)
+
+  describe "Co.drop" $ do
+    it "drop 0 is identity" $
+      Co.toList (Co.drop 0 co9) `shouldBe` [1..9 :: Int]
+    it "drop 3 removes first 3" $
+      Co.toList (Co.drop 3 co9) `shouldBe` [4..9 :: Int]
+    it "drop all gives empty" $
+      Co.toList (Co.drop 9 co9) `shouldBe` ([] :: [Int])
+
+  describe "Co.take" $ do
+    it "take 3 keeps first 3" $
+      Co.toList (Co.take 3 co9) `shouldBe` [1,2,3 :: Int]
+    it "take 0 gives empty" $
+      Co.toList (Co.take 0 co9) `shouldBe` ([] :: [Int])
+    it "take all is identity" $
+      Co.toList (Co.take 9 co9) `shouldBe` [1..9 :: Int]
+
+  describe "Co.zip/zipWith" $ do
+    it "zip equal length" $
+      Co.toList (Co.zip co3 (Co.fromList [10,20,30])) `shouldBe`
+        [(1,10),(2,20),(3,30 :: Int)]
+    it "zipWith (+) equal length" $
+      Co.toList (Co.zipWith (+) co3 (Co.fromList [10,20,30])) `shouldBe`
+        [11,22,33 :: Int]
+    it "zip different lengths truncates from front (Co semantics)" $
+      Co.toList (Co.zip co3 co9) `shouldBe`
+        [(1,7),(2,8),(3,9 :: Int)]
+
+  describe "Co.filter/partition" $ do
+    it "filter even" $
+      Co.toList (Co.filter even co9) `shouldBe` [2,4,6,8 :: Int]
+    it "partition even" $ do
+      let (evens, odds) = Co.partition even co9
+      Co.toList evens `shouldBe` [2,4,6,8 :: Int]
+      Co.toList odds `shouldBe` [1,3,5,7,9 :: Int]
+
+  describe "Co.genericReplicate (was infinite recursion)" $ do
+    it "replicate 0" $
+      Co.toList (Co.genericReplicate (0 :: Int) 'x') `shouldBe` ""
+    it "replicate 1" $
+      Co.toList (Co.genericReplicate (1 :: Int) 'x') `shouldBe` "x"
+    it "replicate 5" $
+      Co.toList (Co.genericReplicate (5 :: Int) 'x') `shouldBe` "xxxxx"
+
+  describe "Co.adjust (was infinite recursion)" $ do
+    it "adjust at 0 modifies last element" $
+      Co.toList (Co.adjust (+100) 0 co9) `shouldBe`
+        [1,2,3,4,5,6,7,8,109 :: Int]
+    it "adjust at (length-1) modifies first element" $
+      Co.toList (Co.adjust (+100) 8 co9) `shouldBe`
+        [101,2,3,4,5,6,7,8,9 :: Int]
+    it "adjust at 4 modifies middle element" $
+      Co.toList (Co.adjust (*10) 4 co9) `shouldBe`
+        [1,2,3,4,50,6,7,8,9 :: Int]
+
+  describe "Co.update (uses adjust)" $ do
+    it "update at 0 replaces last element" $
+      Co.toList (Co.update 0 99 co9) `shouldBe`
+        [1,2,3,4,5,6,7,8,99 :: Int]
+    it "update at 8 replaces first element" $
+      Co.toList (Co.update 8 99 co9) `shouldBe`
+        [99,2,3,4,5,6,7,8,9 :: Int]
+
+  describe "Co.append" $ do
+    it "append two lists" $
+      Co.toList (co3 Co.++ Co.fromList [4,5,6]) `shouldBe` [1..6 :: Int]
+    it "append empty" $
+      Co.toList (co3 Co.++ coEmpty) `shouldBe` [1,2,3 :: Int]
 

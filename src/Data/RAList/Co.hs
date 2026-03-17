@@ -322,23 +322,23 @@ zipWith = \f (CoIndex as) (CoIndex bs) ->
 (!!) :: RAList a -> Word64 -> a
 rls  !! n |  n <  0 = error "Data.RAList.Flip.!!: negative index"
                         | n >= (wLength  rls)  = error "Data.RAList.Flip.!!: index too large"
-                        | otherwise =  reindex rls QRA.!! ((wLength rls)  - n )
+                        | otherwise =  reindex rls QRA.!! ((wLength rls) - 1 - n )
 {-# INLINE lookupWithDefault #-}
 lookupWithDefault :: forall t. t -> Word64 -> RAList t -> t
-lookupWithDefault = \ def ix tree -> QRA.lookupWithDefault def ((wLength tree) - ix ) $ reindex tree
+lookupWithDefault = \ def ix tree -> QRA.lookupWithDefault def ((wLength tree) - 1 - ix ) $ reindex tree
 
 
 {-# INLINE lookupM #-}
 lookupM :: forall a m . MF.MonadFail m =>  Word64 -> RAList a ->  m a
-lookupM = \ ix tree ->  QRA.lookupM  (reindex tree) ((wLength tree)  - ix)
+lookupM = \ ix tree ->  QRA.lookupM  (reindex tree) ((wLength tree) - 1 - ix)
 
 {-# INLINE lookup #-}
 lookup :: forall a. RAList a -> Word64 ->  Maybe a
-lookup =  \ (CoIndex tree) ix -> QRA.lookup  tree  ((QRA.wLength tree) - ix )
+lookup =  \ (CoIndex tree) ix -> QRA.lookup  tree  ((QRA.wLength tree) - 1 - ix )
 
 {-# INLINE lookupCC #-}
 lookupCC :: RAList a -> Word64 -> (a -> r) -> (String -> r) -> r
-lookupCC = \  tree ix f g ->  QRA.lookupCC (reindex tree) ((wLength tree) - ix ) f g
+lookupCC = \  tree ix f g ->  QRA.lookupCC (reindex tree) ((wLength tree) - 1 - ix ) f g
 
 {-# INLINE wLength #-}
 wLength:: RAList a -> Word64
@@ -396,7 +396,7 @@ genericIndex :: Integral n => RAList a -> n -> a
 genericIndex  x i  = QRA.genericIndex (reindex x) i
 
 genericReplicate :: Integral n => n -> a -> RAList a
-genericReplicate i v = coerce $ genericReplicate i v
+genericReplicate i v = coerce $ QRA.genericReplicate i v
 
 
 update ::  Word64 -> a -> RAList a -> RAList a
@@ -404,7 +404,7 @@ update i v l = adjust (const v) i l
 
 
 adjust :: forall a . (a->a) -> Word64 -> RAList a -> RAList a
-adjust f i l =  coerce $ adjust f i $ coerce l
+adjust f i l =  coerce $ QRA.adjust f ((wLength l) - 1 - i) $ coerce l
 
 
 unfoldr :: (b -> Maybe (a, b)) -> b -> RAList a

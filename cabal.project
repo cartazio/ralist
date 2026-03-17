@@ -1,1 +1,2 @@
 packages: ./ralist.cabal
+allow-newer: indexed-traversable:base
