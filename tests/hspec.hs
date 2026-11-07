@@ -1,9 +1,12 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 module Main where
 
 import Data.RAList
 import qualified Data.RAList.Co as Co
 import Test.Hspec
 import Control.Exception (evaluate)
+import Control.Monad (forM_)
+import Data.Functor.Identity (Identity(..))
 import Data.Word (Word64)
 
 import Prelude hiding (
@@ -19,6 +22,21 @@ empty :: RAList a
 empty = Nil
 
 main = hspec $ do
+  describe "RAList.foldlM'" $ do
+    it "preserves order across skew-tree boundaries" $
+      forM_ ([0..129] Prelude.++ [255,256,257,1023,1024]) $ \n -> do
+        let xs = [0..n-1] :: [Int]
+        runIdentity (foldlM' (\acc x -> Identity (x:acc)) [] (fromList xs))
+          `shouldBe` Prelude.reverse xs
+    it "stops at the first monadic failure" $
+      foldlM' (\acc x -> if x == (3 :: Int) then Left acc else Right (x:acc))
+        [] (fromList [0..9]) `shouldBe` Left [2,1,0]
+    it "forces the initial accumulator even for an empty list" $
+      evaluate (runIdentity (foldlM' (\acc (_ :: Int) -> pure acc)
+        (error "initial" :: Int) Nil)) `shouldThrow` anyErrorCall
+    it "forces the final accumulator before a caller discards it" $
+      evaluate (foldlM' (\_ (_ :: Int) -> Right (error "final" :: Int))
+        0 (fromList [1]) >> (Right () :: Either String ())) `shouldThrow` anyErrorCall
   describe "RAList.cons" $ do
     it "adds to an empty list" $ do
       cons 1 empty `shouldBe` (fromList [1] :: RAList Int)

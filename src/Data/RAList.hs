@@ -78,6 +78,7 @@ module Data.RAList
 
    , foldl
    , foldl'
+   , foldlM'
    , foldl1
    , foldl1'
    , foldr
@@ -499,6 +500,22 @@ instance Foldable Tree  where
   -- Tree is a PREORDER sequence layout
   foldMap f (Leaf a) = f a
   foldMap f (Node a l r) =  f a <> foldMap f l <>  foldMap f r
+
+-- | /O(n)/. Monadic left fold in list order, strict in the initial and
+-- intermediate accumulators. Walk the trees directly: no intermediate list or
+-- monoidal composition of actions. Pending continuations follow tree depth.
+foldlM' :: Monad m => (b -> a -> m b) -> b -> RAList a -> m b
+foldlM' step initial values = forest initial values pure
+  where
+    forest !acc RNil done = done acc
+    forest !acc (RCons _ _ tree rest) done =
+      walk acc tree (\ !next -> forest next rest done)
+    walk !acc (Leaf value) done =
+      step acc value >>= \ !next -> done next
+    walk !acc (Node value left right) done =
+      step acc value >>= \ !next ->
+        walk next left (\ !afterLeft -> walk afterLeft right done)
+{-# INLINE foldlM' #-}
 
 
 --instance Functor Tree where
